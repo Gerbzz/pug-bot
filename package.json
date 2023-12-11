@@ -1,5 +1,20 @@
 {
-  "dependencies": {
-    "discord.js": "^14.14.1"
-  }
+	"dependencies": {
+		"discord.js": "^14.14.1",
+		"dotenv": "^16.3.1",
+		"nodemon": "^3.0.2"
+	},
+	"devDependencies": {
+		"eslint": "^8.55.0"
+	},
+	"name": "pug-bot2024",
+	"description": "",
+	"version": "1.0.0",
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC"
 }
