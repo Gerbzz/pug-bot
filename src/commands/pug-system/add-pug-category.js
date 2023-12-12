@@ -5,7 +5,13 @@ const {
 	Client,
 	GatewayIntentBits,
 	GuildVoiceState,
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
 } = require("discord.js");
+
+const pugQueEmbed = require("../../assets/embeds/pug-que-embed");
+const { embed, components } = require("../../assets/embeds/pug-que-embed");
 
 module.exports = {
 	name: "add-pug-category",
@@ -119,29 +125,10 @@ module.exports = {
 									})
 									.then((pugQueChannel) => {
 										// Add reaction emojis for users to react to
-										pugQueChannel
-											.send({
-												embeds: [
-													{
-														title: "Pug Queue",
-														description: "React to join the pug queue!",
-														fields: [
-															{
-																name: "Join Queue",
-																value: "React with ✅ to join the pug queue.",
-															},
-															{
-																name: "Leave Queue",
-																value: "React with ❌ to leave the pug queue.",
-															},
-														],
-													},
-												],
-											})
-											.then((message) => {
-												// Add reaction emojis to the message
-												message.react("✅").then(() => message.react("❌"));
-											});
+										pugQueChannel.send({
+											embeds: [embed],
+											components: components,
+										});
 									})
 									.catch(console.error);
 							})
