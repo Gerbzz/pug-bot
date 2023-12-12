@@ -58,8 +58,6 @@ const gifUrl =
 const thumbnailUrl =
 	"https://cdn.discordapp.com/attachments/549053891476455436/677649538214920217/black_bar_transparent.png1.png?ex=6584c2d0&is=65724dd0&hm=c832f28a000b02d7417a260a716a95e917e36ed3adae3db6bdeff92d14b6341a&";
 
-let pugQueArray = [];
-
 // Create the embed
 const pugQueEmbed = new EmbedBuilder()
 	.setTitle("Pug Queue")
@@ -69,7 +67,8 @@ const pugQueEmbed = new EmbedBuilder()
 	.addFields([
 		{
 			name: "Join Queue List",
-			value: "help",
+			value: `0`,
+			// value: `${pug_que_arrays[categoryName].length} / ${totalNumOfPlayersPerPUG}`, // both variables are from add-pug-category.js command and need to be imported.
 		},
 	])
 	.setFooter({ text: "Good luck, have fun!" });

@@ -1,16 +1,5 @@
-const {
-	ApplicationCommandOptionType,
-	GuildChannelManager,
-	ChannelType,
-	Client,
-	GatewayIntentBits,
-	GuildVoiceState,
-	ActionRowBuilder,
-	ButtonBuilder,
-	ButtonStyle,
-} = require("discord.js");
+const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 
-const pugQueEmbed = require("../../assets/embeds/pug-que-embed");
 const { embed, components } = require("../../assets/embeds/pug-que-embed");
 
 module.exports = {
@@ -19,7 +8,7 @@ module.exports = {
 		"Starts up the bot based on the options you selected and sets up environment!",
 	options: [
 		{
-			name: "category_name",
+			name: "category-name",
 			description: "The name of the category to create channels in.",
 			type: ApplicationCommandOptionType.String,
 			required: true,
@@ -45,15 +34,20 @@ module.exports = {
 		console.log(interaction.commandName);
 
 		if (interaction.commandName === "add-pug-category") {
-			const categoryName = interaction.options.getString("category_name");
-
+			const categoryName = interaction.options.getString("category-name");
 			const numOfPlayersPerTeam = interaction.options.get(
 				"how-many-players-on-a-team"
 			).value;
-
 			const numOfTeamsPerPUG = interaction.options.get(
 				"how-many-teams-are-there"
 			).value;
+			const totalNumOfPlayersPerPUG = numOfPlayersPerTeam * numOfTeamsPerPUG;
+			let pugFormat =
+				`${numOfPlayersPerTeam}v`.repeat(numOfTeamsPerPUG - 1) +
+				numOfPlayersPerTeam;
+			console.log(
+				`Setting up a ${pugFormat} PUG in category "${categoryName}" with a total of ${totalNumOfPlayersPerPUG} players.`
+			);
 
 			// Create the bot folders and channels
 			const guild = interaction.member.guild;
@@ -140,7 +134,7 @@ module.exports = {
 				.catch(console.error);
 
 			interaction.reply(
-				`You Selected... \nNumber of players on a team : ${numOfPlayersPerTeam} \nNumber of Teams per PUG: ${numOfTeamsPerPUG}`
+				`You Selected...\nCategory name : ${categoryName}\nNumber of players on a team : ${numOfPlayersPerTeam} \nNumber of Teams in a pug: ${numOfTeamsPerPUG}\nSize of pug-que: ${totalNumOfPlayersPerPUG}\nFormat of the pug : ${pugFormat}`
 			);
 		}
 	},

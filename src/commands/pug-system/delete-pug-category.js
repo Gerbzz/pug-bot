@@ -1,9 +1,5 @@
 // Import necessary classes and types from the discord.js library
-const {
-	ApplicationCommandOptionType,
-	ChannelType,
-	Client,
-} = require("discord.js");
+const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 
 // Export the module, defining the structure and behavior of the "delete-pug-category" command
 module.exports = {
@@ -69,7 +65,9 @@ module.exports = {
 							.delete()
 							.then(() => {
 								// Log the successful deletion of the category
-								console.log(`Category "${categoryName}" has been deleted.`);
+								console.log(
+									`Category "${categoryName}" and its channels have been deleted.`
+								);
 							})
 							.catch(console.error);
 
@@ -80,6 +78,7 @@ module.exports = {
 					} else {
 						// If the category does not exist, reply to the interaction accordingly
 						interaction.reply(`Category "${categoryName}" does not exist.`);
+						console.log(`Category "${categoryName}" does not exist.`);
 					}
 				})
 				.catch(console.error); // Handle any errors during the fetching process
