@@ -1,6 +1,11 @@
+// src/commands/pug-system/add-pug-category.js
 const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 
-const { embed, components } = require("../../assets/embeds/pug-que-embed");
+const {
+	createPugQueEmbed,
+	components,
+} = require("../../assets/embeds/pug-que-embed");
+const globalState = require("../../state/globalState");
 
 module.exports = {
 	name: "add-pug-category",
@@ -49,9 +54,21 @@ module.exports = {
 				`Setting up a ${pugFormat} PUG in category "${categoryName}" with a total of ${totalNumOfPlayersPerPUG} players.`
 			);
 
-			// Create the bot folders and channels
-			const guild = interaction.member.guild;
+			globalState.setState({
+				categoryName,
+				numOfPlayersPerTeam,
+				numOfTeamsPerPUG,
+				totalNumOfPlayersPerPUG,
+				pugFormat,
+				pug_que_arrays: {}, // Initialize or update this as needed
+			});
 
+			const state = globalState.getState();
+			console.log(state); // Check the values before using them in the embed
+
+			const guild = interaction.member.guild;
+			const embed = createPugQueEmbed();
+			// Create the bot folders and channels
 			// Check for existing category
 			guild.channels
 				.fetch()

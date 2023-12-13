@@ -1,3 +1,5 @@
+// src/commands/pug-system/delete-pug-category.js
+
 // Import necessary classes and types from the discord.js library
 const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 

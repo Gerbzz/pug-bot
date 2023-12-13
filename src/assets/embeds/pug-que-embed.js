@@ -1,51 +1,4 @@
-// const {
-// 	SlashCommandBuilder,
-// 	MessageEmbed,
-// 	ActionRowBuilder,
-// 	ButtonBuilder,
-// 	ButtonStyle,
-// 	EmbedBuilder,
-// } = require("discord.js");
-
-// thumbnailUrl =
-// 	"https://cdn.discordapp.com/attachments/549053891476455436/677649538214920217/black_bar_transparent.png1.png?ex=6584c2d0&is=65724dd0&hm=c832f28a000b02d7417a260a716a95e917e36ed3adae3db6bdeff92d14b6341a&";
-
-// gifUrl = "https://media1.tenor.com/m/1YgYDAoufH0AAAAC/winditup-tiktok.gif";
-
-// // pug-que embed for joining pugs.... First embed of the Program
-// module.exports = {
-// 	title: "Pug Queue",
-// 	description: "React to join the pug queue!",
-// 	image: {
-// 		url: gifUrl,
-// 	},
-// 	thumbnail: { url: thumbnailUrl },
-// 	fields: [
-// 		{
-// 			name: "Join Queue",
-// 			value: "React with ✅ to join the pug queue.",
-// 		},
-// 		{
-// 			name: "Leave Queue",
-// 			value: "React with ❌ to leave the pug queue.",
-// 		},
-// 	],
-// 	footer: {
-// 		text: "Good luck, have fun!",
-// 	},
-// };
-
-///// trying things....
-
-// variables that i need to import...
-// const numOfPlayersPerTeam = interaction.options.get(
-//     "how-many-players-on-a-team"
-// ).value;
-
-// const numOfTeamsPerPUG = interaction.options.get(
-//     "how-many-teams-are-there"
-// ).value;
-
+// src/assets/embeds/pug-que-embed.js
 const {
 	EmbedBuilder,
 	ActionRowBuilder,
@@ -53,27 +6,27 @@ const {
 	ButtonStyle,
 } = require("discord.js");
 
+const globalState = require("../../state/globalState");
+
 const gifUrl =
 	"https://media1.tenor.com/m/1YgYDAoufH0AAAAC/winditup-tiktok.gif";
 const thumbnailUrl =
 	"https://cdn.discordapp.com/attachments/549053891476455436/677649538214920217/black_bar_transparent.png1.png?ex=6584c2d0&is=65724dd0&hm=c832f28a000b02d7417a260a716a95e917e36ed3adae3db6bdeff92d14b6341a&";
 
-// Create the embed
-const pugQueEmbed = new EmbedBuilder()
-	.setTitle("Pug Queue")
-	.setDescription("React to join the pug queue!")
-	.setImage(gifUrl)
-	.setThumbnail(thumbnailUrl)
-	.addFields([
-		{
-			name: "Join Queue List",
-			value: `0`,
-			// value: `${pug_que_arrays[categoryName].length} / ${totalNumOfPlayersPerPUG}`, // both variables are from add-pug-category.js command and need to be imported.
-		},
-	])
-	.setFooter({ text: "Good luck, have fun!" });
+// Function to create the embed
+function createPugQueEmbed() {
+	// Assuming pug_que_arrays holds the current number of players in the queue
+	//const pug_count = Object.values(pug_que_arrays).length; // Update this based on your actual data structure
 
-// Create a button
+	return new EmbedBuilder()
+		.setTitle("Pug Queue")
+		.setDescription("React to join the pug queue!")
+		.setImage(gifUrl)
+		.setThumbnail(thumbnailUrl)
+		.setFooter({ text: "Good luck, have fun!" });
+}
+
+// Create buttons
 const joinQueueButton = new ButtonBuilder()
 	.setCustomId("joinQueue")
 	.setLabel("Join Queue")
@@ -84,13 +37,13 @@ const leaveQueueButton = new ButtonBuilder()
 	.setLabel("Leave Queue")
 	.setStyle(ButtonStyle.Danger);
 
-// Create an action row to hold the button
+// Create an action row to hold the buttons
 const row = new ActionRowBuilder().addComponents(
 	joinQueueButton,
 	leaveQueueButton
 );
 
 module.exports = {
-	embed: pugQueEmbed,
+	createPugQueEmbed,
 	components: [row],
 };

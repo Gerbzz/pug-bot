@@ -1,3 +1,4 @@
+// src/utils/getApplicationCommands.js
 module.exports = async (client, guildId) => {
 	let applicationCommands;
 

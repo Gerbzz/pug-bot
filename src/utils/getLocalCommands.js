@@ -1,3 +1,4 @@
+// /src/utils/getLocalCommands.js
 const path = require("path");
 const getAllFiles = require("./getAllFiles");
 

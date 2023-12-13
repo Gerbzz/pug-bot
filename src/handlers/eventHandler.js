@@ -1,3 +1,4 @@
+// src/handlers/eventHandler.js
 const path = require("path");
 const getAllFiles = require("../utils/getAllFiles");
 

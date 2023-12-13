@@ -1,65 +1,98 @@
-// events/interactionCreate/handleButtons.js
-let pug_que_arrays = {};
+const globalState = require("../../state/globalState");
+const {
+	createPugQueEmbed,
+	components,
+} = require("../../assets/embeds/pug-que-embed");
 
 module.exports = async (client, interaction) => {
 	if (!interaction.isButton()) return;
 
-	await interaction.deferReply({ ephemeral: true }); // Acknowledge the interaction immediately
+	await interaction.deferReply({ ephemeral: true });
 
-	// Access the channel and category where the interaction took place
 	const channel = interaction.channel;
 	const category = channel.parent;
 	const categoryName = category ? category.name : "Unknown Category";
 
-	// Initialize the queue for the category if it doesn't exist
+	const { pug_que_arrays, totalNumOfPlayersPerPUG } = globalState.getState();
+
 	if (!pug_que_arrays[categoryName]) {
 		pug_que_arrays[categoryName] = [];
 	}
 
+	let responseMessage = "";
+	let shouldUpdateEmbed = false;
+
 	if (interaction.customId === "joinQueue") {
 		if (!pug_que_arrays[categoryName].includes(interaction.user.tag)) {
 			pug_que_arrays[categoryName].push(interaction.user.tag);
-			await interaction.editReply({
-				content: "You've joined the queue for " + categoryName + "!",
-			});
+			responseMessage = "You've joined the queue for " + categoryName + "!";
+			shouldUpdateEmbed = true;
+			pug_que_arrays[categoryName].push("player1");
+			pug_que_arrays[categoryName].push("player2");
+			pug_que_arrays[categoryName].push("player3");
+			pug_que_arrays[categoryName].push("player4");
+			pug_que_arrays[categoryName].push("player5");
+			pug_que_arrays[categoryName].push("player6");
+			pug_que_arrays[categoryName].push("player7");
+			pug_que_arrays[categoryName].push("player8");
+			pug_que_arrays[categoryName].push("player9");
+
+			// Log the current queue size for debugging
+			const queueSize = pug_que_arrays[categoryName].length;
 			console.log(
-				`${interaction.user.tag} just joined the ${categoryName} pug-que...`
+				`Queue size for ${categoryName}: ${queueSize} / ${totalNumOfPlayersPerPUG}`
 			);
 		} else {
-			await interaction.editReply({
-				content: "You are already in the queue for " + categoryName + ".",
-			});
-			console.log(
-				`${interaction.user.tag} just tried to join the ${categoryName} pug-que... but they're already in it... l0l`
-			);
+			responseMessage =
+				"You are already in the queue for " + categoryName + ".";
 		}
 	}
 
 	if (interaction.customId === "leaveQueue") {
-		// Check if the user is in the queue
 		if (pug_que_arrays[categoryName].includes(interaction.user.tag)) {
-			// Remove the user from the queue
 			pug_que_arrays[categoryName] = pug_que_arrays[categoryName].filter(
 				(tag) => tag !== interaction.user.tag
 			);
-			await interaction.editReply({
-				content: "You've left the queue for " + categoryName + "!",
-			});
-			console.log(
-				`${interaction.user.tag} just left the ${categoryName} pug-que...`
-			);
-			// Update the embed/message that shows the queue
-			// ... (code to update the embed)
+			responseMessage = "You've left the queue for " + categoryName + "!";
+			shouldUpdateEmbed = true;
+
+			pug_que_arrays[categoryName].pop("player1");
+			pug_que_arrays[categoryName].pop("player2");
+			pug_que_arrays[categoryName].pop("player3");
+			pug_que_arrays[categoryName].pop("player4");
+			pug_que_arrays[categoryName].pop("player5");
+			pug_que_arrays[categoryName].pop("player6");
+			pug_que_arrays[categoryName].pop("player7");
+			pug_que_arrays[categoryName].pop("player8");
+			pug_que_arrays[categoryName].pop("player9");
+
+			// Log the current queue size for debugging
+			const queueSize = pug_que_arrays[categoryName].length;
+			console.log(`Queue size for ${categoryName}: ${queueSize}`);
 		} else {
-			// User is not in the queue
-			await interaction.editReply({
-				content: "You are not in the queue for " + categoryName + ".",
-			});
-			console.log(
-				`${interaction.user.tag} is not in the queue for ${categoryName} pug-que...`
-			);
+			responseMessage = "You are not in the queue for " + categoryName + ".";
 		}
 	}
+
+	// Update the global state
+
+	// Update the embed if the queue has changed
+	if (shouldUpdateEmbed) {
+		globalState.setState({ pug_que_arrays });
+		const message = await interaction.message.fetch();
+		const embed = createPugQueEmbed();
+
+		// Update the pug_count on the embed
+		embed.setDescription(
+			`Queue: ${pug_que_arrays[categoryName].length} / ${totalNumOfPlayersPerPUG}`
+		);
+
+		// Edit the original message with the updated embed
+		await message.edit({ embeds: [embed], components: components });
+	}
+
+	// Send a reply to the user
+	await interaction.editReply({ content: responseMessage });
 
 	// Log the current state of the queue for debugging
 	console.log(pug_que_arrays);
