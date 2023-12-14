@@ -5,6 +5,7 @@ const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 
 // Export the module, defining the structure and behavior of the "delete-pug-category" command
 module.exports = {
+	devOnly: true,
 	name: "delete-pug-category", // Name of the command
 	description: "Deletes the specified pug environment category.", // Description of what the command does
 

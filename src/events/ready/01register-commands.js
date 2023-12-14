@@ -1,8 +1,8 @@
 // src/events/ready/01registerCommands.js
 const { testServer } = require("../../../config.json");
-const areCommandsDifferent = require("../../utils/areCommandsDifferent");
-const getApplicationCommands = require("../../utils/getApplicationCommands");
-const getLocalCommands = require("../../utils/getLocalCommands");
+const areCommandsDifferent = require("../../utils/are-commands-different");
+const getApplicationCommands = require("../../utils/get-application-commands");
+const getLocalCommands = require("../../utils/get-local-commands");
 
 module.exports = async (client) => {
 	try {

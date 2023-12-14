@@ -6,7 +6,7 @@ let state = {
 	totalNumOfPlayersPerPUG: 0,
 	pugFormat: "",
 	pug_que_arrays: {},
-	pug_count: 0,
+	matchCounter: 1,
 
 	// Other global states
 };

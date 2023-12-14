@@ -1,6 +1,6 @@
 // /src/utils/getLocalCommands.js
 const path = require("path");
-const getAllFiles = require("./getAllFiles");
+const getAllFiles = require("./get-all-files");
 
 module.exports = (exceptions = []) => {
 	let localCommands = [];

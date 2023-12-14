@@ -1,4 +1,4 @@
-const globalState = require("../../state/globalState");
+const globalState = require("../../state/global-state");
 const {
 	createPugQueEmbed,
 	components,
@@ -42,6 +42,7 @@ module.exports = async (client, interaction) => {
 			console.log(
 				`Queue size for ${categoryName}: ${queueSize} / ${totalNumOfPlayersPerPUG}`
 			);
+			globalState.setState({ pug_que_arrays });
 		} else {
 			responseMessage =
 				"You are already in the queue for " + categoryName + ".";
@@ -69,12 +70,11 @@ module.exports = async (client, interaction) => {
 			// Log the current queue size for debugging
 			const queueSize = pug_que_arrays[categoryName].length;
 			console.log(`Queue size for ${categoryName}: ${queueSize}`);
+			globalState.setState({ pug_que_arrays });
 		} else {
 			responseMessage = "You are not in the queue for " + categoryName + ".";
 		}
 	}
-
-	// Update the global state
 
 	// Update the embed if the queue has changed
 	if (shouldUpdateEmbed) {

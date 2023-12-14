@@ -1,6 +1,6 @@
 // src/events/interactionCreate/handleCommands.js
 const { devs, testServer } = require("../../../config.json");
-const getLocalCommands = require("../../utils/getLocalCommands");
+const getLocalCommands = require("../../utils/get-local-commands");
 
 module.exports = async (client, interaction) => {
 	if (!interaction.isChatInputCommand()) return;

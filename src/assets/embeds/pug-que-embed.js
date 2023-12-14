@@ -6,7 +6,7 @@ const {
 	ButtonStyle,
 } = require("discord.js");
 
-const globalState = require("../../state/globalState");
+const globalState = require("../../state/global-state");
 
 const gifUrl =
 	"https://media1.tenor.com/m/1YgYDAoufH0AAAAC/winditup-tiktok.gif";

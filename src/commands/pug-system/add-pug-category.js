@@ -5,9 +5,10 @@ const {
 	createPugQueEmbed,
 	components,
 } = require("../../assets/embeds/pug-que-embed");
-const globalState = require("../../state/globalState");
+const globalState = require("../../state/global-state");
 
 module.exports = {
+	devOnly: true,
 	name: "add-pug-category",
 	description:
 		"Starts up the bot based on the options you selected and sets up environment!",
