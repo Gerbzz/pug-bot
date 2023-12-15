@@ -20,7 +20,7 @@ function createPugQueEmbed() {
 
 	return new EmbedBuilder()
 		.setTitle("Pug Queue")
-		.setDescription("React to join the pug queue!")
+		.setDescription("Dont press the red button!")
 		.setImage(gifUrl)
 		.setThumbnail(thumbnailUrl)
 		.setFooter({ text: "Good luck, have fun!" });

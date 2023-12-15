@@ -1,11 +1,11 @@
 // src/commands/pug-system/add-pug-category.js
 const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
-
 const {
 	createPugQueEmbed,
 	components,
 } = require("../../assets/embeds/pug-que-embed");
 const globalState = require("../../state/global-state");
+const pugModel = require("../../models/pug-model");
 
 module.exports = {
 	devOnly: true,
@@ -37,7 +37,7 @@ module.exports = {
 	callback: async (client, interaction) => {
 		if (!interaction.isChatInputCommand()) return;
 
-		console.log(interaction.commandName);
+		console.log(`${interaction.commandName} command was ran!`.blue.inverse);
 
 		if (interaction.commandName === "add-pug-category") {
 			const categoryName = interaction.options.getString("category-name");
@@ -61,11 +61,30 @@ module.exports = {
 				numOfTeamsPerPUG,
 				totalNumOfPlayersPerPUG,
 				pugFormat,
-				pug_que_arrays: {}, // Initialize or update this as needed
+				pugStateArray: [],
+				pug_que_arrays: {},
 			});
 
 			const state = globalState.getState();
 			console.log(state); // Check the values before using them in the embed
+
+			const newPug = new pugModel({
+				serverId: interaction.guild.id,
+				categoryName,
+				numOfPlayersPerTeam,
+				numOfTeamsPerPUG,
+				totalNumOfPlayersPerPUG,
+				pugFormat,
+				pugStateArray: [],
+				pug_que_arrays: {},
+			});
+
+			newPug
+				.save()
+				.then(() =>
+					console.log(`newPug data is saved on db! : ${newPug}`.green.inverse)
+				)
+				.catch((err) => console.error("Error saving newPug:".red.inverse, err));
 
 			const guild = interaction.member.guild;
 			const embed = createPugQueEmbed();
@@ -146,7 +165,10 @@ module.exports = {
 							})
 							.catch(console.error);
 					} else {
-						console.log(`Category "${categoryName}" already exists.`);
+						console.log(
+							`You tried creating a Pug Category named : "${categoryName}"..... \nHowever that Category already exists.`
+								.yellow.inverse
+						);
 					}
 				})
 				.catch(console.error);

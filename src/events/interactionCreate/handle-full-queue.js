@@ -168,8 +168,8 @@ module.exports = async (client, interaction) => {
 		console.error("The channel does not have an associated category.");
 		return;
 	}
-
 	const categoryName = category.name;
+
 	if (pug_que_arrays[categoryName]?.length >= totalNumOfPlayersPerPUG) {
 		// Increment match counter
 		let newMatchCounter = matchCounter + 1;

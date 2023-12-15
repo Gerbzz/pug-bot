@@ -2,6 +2,7 @@
 
 // Import necessary classes and types from the discord.js library
 const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
+const pugModel = require("../../models/pug-model");
 
 // Export the module, defining the structure and behavior of the "delete-pug-category" command
 module.exports = {
@@ -25,7 +26,7 @@ module.exports = {
 		if (!interaction.isChatInputCommand()) return;
 
 		// Log the name of the command being executed for debugging purposes
-		console.log(interaction.commandName);
+		console.log(`${interaction.commandName} command was ran!`.blue.inverse);
 
 		// Check if the executed command is "delete-pug-category"
 		if (interaction.commandName === "delete-pug-category") {
@@ -56,11 +57,52 @@ module.exports = {
 					// Check if the specified category exists
 					if (categoryToDelete) {
 						// Filter out all channels that are children of the specified category
+						console.log(`Deletion in progress...`.red.inverse);
 						channels
 							.filter((channel) => channel.parentId === categoryToDelete.id)
 							.forEach((channel) => {
 								// Delete each channel found in the category
 								channel.delete().catch(console.error);
+								console.log(`Channel "${channel.name}" has been deleted.`.red);
+							});
+
+						let docNeeded = pugModel.findOne({
+							serverId: interaction.guild.id,
+							categoryName: categoryName,
+						});
+
+						docNeeded
+							.then((doc) => {
+								console.log(
+									`.\n.\n.\nnewPug data from DB is set up for deletion on db : ${JSON.stringify(
+										doc,
+										null,
+										2
+									)}\n.\n.\n.`.red
+								);
+							})
+							.catch((err) => {
+								console.error("Error retrieving newPug data:", err);
+							});
+
+						// Delete the corresponding pug model from the database
+						pugModel
+							.deleteOne({
+								serverId: interaction.guild.id,
+								categoryName: categoryName,
+							})
+							.then(() => {
+								// Log the successful deletion of the pug model
+								console.log(
+									`Pug model for category "${categoryName}" has been deleted in the database.`
+										.red.inverse
+								);
+							})
+							.catch((err) => {
+								console.error(
+									`Error deleting pug category "${categoryName}":`,
+									err
+								);
 							});
 
 						// After deleting all channels, delete the category itself
@@ -69,7 +111,8 @@ module.exports = {
 							.then(() => {
 								// Log the successful deletion of the category
 								console.log(
-									`Category "${categoryName}" and its channels have been deleted.`
+									`Category "${categoryName}" and its channels have been deleted in the discord.`
+										.red.inverse
 								);
 							})
 							.catch(console.error);
