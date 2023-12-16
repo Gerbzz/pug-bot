@@ -1,3 +1,4 @@
+// src/models/pug-model.js
 const mongoose = require("mongoose");
 
 const pugSchema = new mongoose.Schema({
@@ -26,13 +27,13 @@ const pugSchema = new mongoose.Schema({
 		type: String,
 		required: true,
 	},
-	pug_que_arrays: {
-		type: Object,
-		required: true,
-	},
-	pugStateArray: {
+	queuedPlayers: {
 		type: Array,
-		required: true,
+		required: false,
+	},
+	pugQueueArrays: {
+		type: Object,
+		required: false,
 	},
 	matchCounter: {
 		type: Number,

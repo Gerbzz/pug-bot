@@ -61,8 +61,8 @@ module.exports = {
 				numOfTeamsPerPUG,
 				totalNumOfPlayersPerPUG,
 				pugFormat,
-				pugStateArray: [],
-				pug_que_arrays: {},
+				queuedPlayers: [],
+				pugQueueArrays: {},
 			});
 
 			const state = globalState.getState();
@@ -75,8 +75,9 @@ module.exports = {
 				numOfTeamsPerPUG,
 				totalNumOfPlayersPerPUG,
 				pugFormat,
-				pugStateArray: [],
-				pug_que_arrays: {},
+				queuedPlayers: [],
+				pugQueueArrays: {},
+				matchCounter: 0,
 			});
 
 			newPug

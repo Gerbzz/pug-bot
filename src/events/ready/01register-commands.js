@@ -48,7 +48,7 @@ module.exports = async (client) => {
 					options,
 				});
 
-				console.log(`👍 Registered command "${name}."`);
+				console.log(`👍 Registered command ${name}.`.green.inverse);
 			}
 		}
 	} catch (error) {

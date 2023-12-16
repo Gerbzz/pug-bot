@@ -15,12 +15,9 @@ const thumbnailUrl =
 
 // Function to create the embed
 function createPugQueEmbed() {
-	// Assuming pug_que_arrays holds the current number of players in the queue
-	//const pug_count = Object.values(pug_que_arrays).length; // Update this based on your actual data structure
-
 	return new EmbedBuilder()
 		.setTitle("Pug Queue")
-		.setDescription("Dont press the red button!")
+		.setDescription("Click the button below to join the queue!")
 		.setImage(gifUrl)
 		.setThumbnail(thumbnailUrl)
 		.setFooter({ text: "Good luck, have fun!" });

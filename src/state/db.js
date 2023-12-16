@@ -1,3 +1,4 @@
+// src/state/db.js
 require("dotenv").config();
 const mongoose = require("mongoose");
 const color = require("colors");

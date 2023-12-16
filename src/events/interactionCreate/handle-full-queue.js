@@ -9,7 +9,7 @@
 // module.exports = async (client, interaction) => {
 // 	// Check if the queue is full and handle it
 // 	const {
-// 		pug_que_arrays,
+// 		pugQueueArrays,
 // 		totalNumOfPlayersPerPUG,
 // 		numOfPlayersPerTeam,
 // 		numOfTeamsPerPUG,
@@ -34,8 +34,8 @@
 // 	const categoryName = category.name;
 
 // 	if (
-// 		pug_que_arrays[categoryName] &&
-// 		pug_que_arrays[categoryName].length >= totalNumOfPlayersPerPUG
+// 		pugQueueArrays[categoryName] &&
+// 		pugQueueArrays[categoryName].length >= totalNumOfPlayersPerPUG
 // 	) {
 // 		// Queue is full, handle it by creating match category and channels
 
@@ -141,22 +141,117 @@
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// const { ChannelType } = require("discord.js");
+// const globalState = require("../../state/global-state");
+// const {
+// 	createMatchRoomEmbed,
+// 	components,
+// } = require("../../assets/embeds/match-room-embed");
+// const pugModel = require("../../models/pug-model");
+
+// module.exports = async (client, interaction) => {
+// 	// Check if the queue is full and handle it
+// 	// const {
+// 	// 	pugQueueArrays,
+// 	// 	totalNumOfPlayersPerPUG,
+// 	// 	numOfTeamsPerPUG,
+// 	// 	matchCounter,
+// 	// } = globalState.getState();
+
+// 	let doc = await pugModel.findOne({
+// 		serverId: interaction.guild.id,
+// 		categoryName: categoryName,
+// 	});
+
+// 	// rewriting the above code to use the doc instead of the globalState
+// 	let queuedPlayers = doc.queuedPlayers;
+// 	let totalNumOfPlayersPerPUG = doc.totalNumOfPlayersPerPUG;
+// 	let numOfTeamsPerPUG = doc.numOfTeamsPerPUG;
+// 	let matchCounter = doc.matchCounter;
+
+// 	if (!doc) {
+// 		console.log("No pugModel to be used as reference!");
+// 		return;
+// 	}
+
+// 	const channel = interaction.channel;
+// 	if (!channel) {
+// 		console.error("The interaction does not have an associated channel.");
+// 		return;
+// 	}
+
+// 	const category = channel.parent;
+// 	if (!category) {
+// 		console.error("The channel does not have an associated category.");
+// 		return;
+// 	}
+// 	const categoryName = category.name;
+
+// 	if (pugQueueArrays[categoryName]?.length >= totalNumOfPlayersPerPUG) {
+// 		// Increment match counter
+// 		let newMatchCounter = matchCounter + 1;
+// 		globalState.setState({ matchCounter: newMatchCounter });
+
+// 		const guild = interaction.guild;
+// 		const embed = createMatchRoomEmbed();
+
+// 		try {
+// 			// Create the match category
+// 			const matchCategory = await guild.channels.create({
+// 				name: `${categoryName} PUG#${newMatchCounter}`,
+// 				type: ChannelType.GuildCategory,
+// 			});
+
+// 			// Create voice channels for each team
+// 			for (let i = 1; i <= numOfTeamsPerPUG; i++) {
+// 				await guild.channels.create({
+// 					name: `Team ${i}`,
+// 					type: ChannelType.GuildVoice,
+// 					parent: matchCategory.id,
+// 				});
+// 			}
+
+// 			// Create the match room text channel
+// 			await guild.channels.create({
+// 				name: "match-room",
+// 				type: ChannelType.GuildText,
+// 				parent: matchCategory.id,
+// 			});
+
+// 			// Send the match room interface message
+// 			const matchRoomInterfaceChannel = await guild.channels.create({
+// 				name: "match-room-interface",
+// 				type: ChannelType.GuildText,
+// 				parent: matchCategory.id,
+// 			});
+
+// 			await matchRoomInterfaceChannel.send({
+// 				embeds: [embed],
+// 				components: components,
+// 			});
+
+// 			// Reset the queue for the category
+// 			pugQueueArrays[categoryName] = [];
+// 			globalState.setState({ pugQueueArrays });
+// 			console.log(
+// 				`Match channels created for ${categoryName} PUG#${newMatchCounter}`
+// 			);
+// 		} catch (error) {
+// 			console.error("Error creating match category and channels:", error);
+// 		}
+// 	}
+// };
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 const { ChannelType } = require("discord.js");
-const globalState = require("../../state/global-state");
 const {
 	createMatchRoomEmbed,
 	components,
 } = require("../../assets/embeds/match-room-embed");
+const pugModel = require("../../models/pug-model");
 
 module.exports = async (client, interaction) => {
-	// Check if the queue is full and handle it
-	const {
-		pug_que_arrays,
-		totalNumOfPlayersPerPUG,
-		numOfTeamsPerPUG,
-		matchCounter,
-	} = globalState.getState();
-
 	const channel = interaction.channel;
 	if (!channel) {
 		console.error("The interaction does not have an associated channel.");
@@ -170,10 +265,28 @@ module.exports = async (client, interaction) => {
 	}
 	const categoryName = category.name;
 
-	if (pug_que_arrays[categoryName]?.length >= totalNumOfPlayersPerPUG) {
+	let doc = await pugModel.findOne({
+		serverId: interaction.guild.id,
+		categoryName: categoryName,
+	});
+
+	if (!doc) {
+		console.log("No pugModel found for the given categoryName and serverId!");
+		return;
+	}
+
+	let queuedPlayers = doc.queuedPlayers;
+	let totalNumOfPlayersPerPUG = doc.totalNumOfPlayersPerPUG;
+	let numOfTeamsPerPUG = doc.numOfTeamsPerPUG;
+	let matchCounter = doc.matchCounter;
+
+	if (queuedPlayers.length >= totalNumOfPlayersPerPUG) {
 		// Increment match counter
 		let newMatchCounter = matchCounter + 1;
-		globalState.setState({ matchCounter: newMatchCounter });
+
+		// Save the incremented match counter to the database
+		doc.matchCounter = newMatchCounter;
+		await doc.save();
 
 		const guild = interaction.guild;
 		const embed = createMatchRoomEmbed();
@@ -213,9 +326,10 @@ module.exports = async (client, interaction) => {
 				components: components,
 			});
 
-			// Reset the queue for the category
-			pug_que_arrays[categoryName] = [];
-			globalState.setState({ pug_que_arrays });
+			// Reset the queue for the category in the database
+			doc.queuedPlayers = [];
+			await doc.save();
+
 			console.log(
 				`Match channels created for ${categoryName} PUG#${newMatchCounter}`
 			);
