@@ -17,39 +17,34 @@ const thumbnailUrl =
 // let queuedPlayers = doc.queuedPlayers;
 
 // Create the embed
-function matchRoomEmbed() {
+function matchFoundEmbed() {
 	return new EmbedBuilder()
 		.setThumbnail(thumbnailUrl)
-		.setTitle("Match Room Interface!")
-		.setDescription("Click the button below if you need a substitute player.")
-		.addFields(
-			{
-				name: "Team 1",
-				// add player from database array and not hard coded
-				value: "player1\nplayer2\nplayer3\nplayer4\nplayer5",
-				inline: true,
-			},
-			{
-				name: "Team 2",
-				// add player from database array and not hard coded
-				value: "player6\nplayer7\nplayer8\nplayer9\nplayer10",
-				inline: true,
-			}
-		)
+		.setTitle("Match Found Interface!")
+		.setDescription("Click the Buttons Below to Accept or Decline the Match.")
 		.setColor(0x2a2d31);
 }
 
 // Create the button
-const subButton = new ButtonBuilder()
-	.setCustomId("substitute")
-	.setLabel("Sub Button")
-	.setStyle(ButtonStyle.Primary);
+const acceptMatchButton = new ButtonBuilder()
+	.setCustomId("acceptMatchButton")
+	.setLabel("Accept Match")
+	.setStyle(ButtonStyle.Success);
+
+const declineMatchButton = new ButtonBuilder()
+	.setCustomId("declineMatchButton")
+	.setLabel("Decline Match")
+	.setStyle(ButtonStyle.Danger);
 
 // Create an action row and add the button to it
-const row = new ActionRowBuilder().addComponents(subButton);
+const row = new ActionRowBuilder().addComponents(
+	acceptMatchButton,
+	declineMatchButton
+);
 
 // Export the embed and components
 module.exports = {
-	matchRoomEmbed,
-	components: [row],
+	matchFoundEmbed,
+	// replace components with matchFoundComponents
+	matchFoundComponents: [row],
 };

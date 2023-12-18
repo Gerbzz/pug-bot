@@ -31,8 +31,12 @@ const pugSchema = new mongoose.Schema({
 		type: Array,
 		required: false,
 	},
-	pugQueueArrays: {
-		type: Object,
+	matchFoundPlayers: {
+		type: Array,
+		required: false,
+	},
+	acceptedMatchFoundPlayers: {
+		type: Array,
 		required: false,
 	},
 	matchCounter: {
