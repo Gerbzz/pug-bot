@@ -14,6 +14,11 @@ const {
 const pugModel = require("../../models/pug-model");
 
 module.exports = async (client, interaction) => {
+	// *****************************************
+	// Section : Initilize Variables
+	// initilize the variables to be used throughout the code
+	// *****************************************
+
 	let channel = interaction.channel;
 	if (!channel) {
 		console.error(
@@ -51,6 +56,10 @@ module.exports = async (client, interaction) => {
 	let numOfTeamsPerPUG = doc.numOfTeamsPerPUG;
 	let matchCounter = doc.matchCounter;
 	let onGoingPugs = doc.onGoingPugs;
+
+	// *****************************************
+	// Section : Enough To Start Pug Logic
+	// *****************************************
 
 	// totalNumOfPlayersPerPUG = user input
 	if (queuedPlayers.length >= totalNumOfPlayersPerPUG) {
@@ -152,8 +161,6 @@ module.exports = async (client, interaction) => {
 		}
 	}
 
-	// figure out a way to handle if everyone doesn't accept the match and then remove the matchFoundPlayers from the database and put them back into the queuedPlayers array if they weren't the ones who declined the match like if matchFoundPlayers length is equal to the acceptedMatchFoundPlayers length then we should create the rest of the voice and text channels
-
 	if (acceptedMatchFoundPlayers.length >= totalNumOfPlayersPerPUG) {
 		// condition met to create the match room category and channels
 		console.log(
@@ -209,6 +216,9 @@ module.exports = async (client, interaction) => {
 			{ $set: { acceptedMatchFoundPlayers: acceptedMatchFoundPlayers } }
 		);
 
+		// *****************************************
+		// Section : deletes ready check channel when everyone accepts the match
+		// *****************************************
 		// Fetch all channels of the guild
 		guild.channels
 			.fetch()
@@ -290,7 +300,6 @@ module.exports = async (client, interaction) => {
 				`Match channels created for ${baseCategoryName} `.blue +
 					`PUG#${newMatchCounter}`.blue.inverse
 			);
-			ca;
 		} catch (error) {
 			console.error("Error creating match category and channels:", error);
 		}

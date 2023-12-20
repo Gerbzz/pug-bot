@@ -1,5 +1,6 @@
 // src/events/interactionCreate/handle-buttons.js
 const pugModel = require("../../models/pug-model");
+const { ChannelType } = require("discord.js");
 
 module.exports = async (client, interaction) => {
 	if (!interaction.isButton()) return;
@@ -126,6 +127,54 @@ module.exports = async (client, interaction) => {
 		}
 	} else if (interaction.customId === "declineMatchButton") {
 		if (matchFoundPlayers.includes(interaction.user.tag)) {
+			//before we revert all lets delete the category and channels called ready
+			// *****************************************
+			// Section : deletes ready check channel when everyone accepts the match
+			// *****************************************
+			const guild = interaction.guild;
+			// Fetch all channels of the guild
+			guild.channels
+				.fetch()
+				.then((channels) => {
+					// Find the category to delete based on the provided name
+					const categoryToDelete = channels.find(
+						(channel) =>
+							channel.name === `${baseCategoryName} Ready Check!` &&
+							channel.type === ChannelType.GuildCategory
+					);
+
+					// Check if the specified category exists
+					if (categoryToDelete) {
+						// Filter out all channels that are children of the specified category
+						console.log(`Deletion in progress...`.red.inverse);
+						channels
+							.filter((channel) => channel.parentId === categoryToDelete.id)
+							.forEach((channel) => {
+								// Delete each channel found in the category
+								channel.delete().catch(console.error);
+								console.log(`Channel "${channel.name}" has been deleted.`.red);
+							});
+
+						// After deleting all channels, delete the category itself
+						categoryToDelete
+							.delete()
+							.then(() => {
+								// Log the successful deletion of the category
+								console.log(
+									`Category "${categoryName}" and its channels have been deleted in the discord.`
+										.red.inverse
+								);
+							})
+							.catch(console.error);
+					} else {
+						// If the category does not exist, reply to the interaction accordingly
+						interaction.reply(`Category "${categoryName}" does not exist.`);
+						console.log(`Category "${categoryName}" does not exist.`);
+					}
+				})
+				.catch(console.error); // Handle any errors during the fetching process
+
+			// Remove the player from the matchFoundPlayers array
 			matchFoundPlayers = matchFoundPlayers.filter(
 				(player) => player !== interaction.user.tag
 			);
