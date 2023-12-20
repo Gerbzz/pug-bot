@@ -39,6 +39,10 @@ const pugSchema = new mongoose.Schema({
 		type: Array,
 		required: false,
 	},
+	onGoingPugs: {
+		type: Array,
+		required: false,
+	},
 	matchCounter: {
 		type: Number,
 		required: false,

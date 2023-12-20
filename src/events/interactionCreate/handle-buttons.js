@@ -1,14 +1,4 @@
 // src/events/interactionCreate/handle-buttons.js
-const {
-	pugQueEmbed,
-	components: pugQueComponents,
-} = require("../../assets/embeds/pug-que-embed");
-
-const {
-	matchFoundEmbed,
-	components: matchFoundComponents,
-} = require("../../assets/embeds/match-found-embed");
-
 const pugModel = require("../../models/pug-model");
 
 module.exports = async (client, interaction) => {
@@ -40,6 +30,9 @@ module.exports = async (client, interaction) => {
 	let queuedPlayers = doc.queuedPlayers;
 	let matchFoundPlayers = doc.matchFoundPlayers;
 	let acceptedMatchFoundPlayers = doc.acceptedMatchFoundPlayers;
+	let totalNumOfPlayersPerPUG = doc.totalNumOfPlayersPerPUG;
+	let shouldUpdateMatchFoundEmbed = false;
+	let shouldUpdatePugQueEmbed = false;
 
 	let responseMessage = "";
 
@@ -58,9 +51,11 @@ module.exports = async (client, interaction) => {
 	];
 
 	if (interaction.customId === "joinQueue") {
-		if (!queuedPlayers.includes(interaction.user.tag)) {
+		if (
+			!queuedPlayers.includes(interaction.user.tag) &&
+			!matchFoundPlayers.includes(interaction.user.tag)
+		) {
 			queuedPlayers.push(interaction.user.tag);
-
 			// console log each player that is added to the queue
 			console.log(`${interaction.user.tag} joined the queue...`.magenta);
 
@@ -81,6 +76,7 @@ module.exports = async (client, interaction) => {
 				{ queuedPlayers: queuedPlayers }
 			);
 			responseMessage = "You have joined the queue for " + categoryName + "!";
+			shouldUpdatePugQueEmbed = true;
 		} else {
 			responseMessage =
 				"You are already in the queue for " + categoryName + ".";
@@ -100,6 +96,7 @@ module.exports = async (client, interaction) => {
 				{ queuedPlayers: queuedPlayers }
 			);
 			responseMessage = "You have left the queue for " + categoryName + "!";
+			shouldUpdatePugQueEmbed = true;
 		} else {
 			responseMessage = "You are not in the queue for " + categoryName + ".";
 		}
@@ -122,6 +119,7 @@ module.exports = async (client, interaction) => {
 				{ acceptedMatchFoundPlayers: acceptedMatchFoundPlayers }
 			);
 			responseMessage = "You've accepted the match for " + categoryName + "!";
+			shouldUpdateMatchFoundEmbed = true;
 		} else {
 			responseMessage =
 				"You've already accepted the match for " + categoryName + "!";
@@ -134,7 +132,8 @@ module.exports = async (client, interaction) => {
 			acceptedMatchFoundPlayers = acceptedMatchFoundPlayers.filter(
 				(player) => player !== interaction.user.tag
 			);
-			// Revert all non-declining, match-found players back to the queue
+
+			// Revert all non-declining, match-found players back to the queuedPlayers queue
 			queuedPlayers.push(
 				...matchFoundPlayers.filter(
 					(player) => !acceptedMatchFoundPlayers.includes(player)
@@ -152,9 +151,103 @@ module.exports = async (client, interaction) => {
 				}
 			);
 			responseMessage = "You've declined the match for " + categoryName + "!";
+			shouldUpdateMatchFoundEmbed = true;
 		} else {
 			responseMessage =
 				"You are not in the match found players for " + categoryName + ".";
+		}
+	}
+
+	// Update the embed if the matchFoundQueue has changed
+	if (shouldUpdateMatchFoundEmbed === true) {
+		try {
+			const {
+				matchFoundEmbed,
+				components,
+			} = require("../../assets/embeds/match-found-embed");
+			// Fetch the document from the database
+			let doc = await pugModel.findOne({
+				serverId: interaction.guild.id,
+				categoryName: categoryName,
+			});
+
+			if (!doc) {
+				console.log("No document found for updating embed!");
+				return;
+			}
+
+			// Use the data from the database to update the Discord message
+			const message = await interaction.message.fetch();
+			const embed = matchFoundEmbed();
+
+			// Update the description of the embed
+			// switch from using description and start adding feilds to the embed
+
+			embed.setFields([
+				{
+					name: "Waiting on Response From:",
+					value: matchFoundPlayers.join("\n"),
+				},
+			]);
+
+			// Edit the original message with the updated embed
+			await message.edit({ embeds: [embed], components: components });
+		} catch (err) {
+			console.log("Something wrong when updating data!", err);
+		}
+		console.log(
+			"matchFoundEmbed updated!\n This a test to see if queuePlayers and totalNumOfPlayersPerPUG exists: "
+				.yellow.inverse,
+			queuedPlayers,
+			totalNumOfPlayersPerPUG
+		);
+	} else if (shouldUpdatePugQueEmbed === true) {
+		try {
+			const {
+				pugQueEmbed,
+				components,
+			} = require("../../assets/embeds/pug-que-embed");
+			// Fetch the document from the database
+			let doc = await pugModel.findOne({
+				serverId: interaction.guild.id,
+				categoryName: categoryName,
+			});
+
+			console.log("once upon a time there was a doc: ", doc);
+
+			if (!doc) {
+				console.log("No document found for updating embed!");
+				return;
+			}
+
+			// Use the data from the database to update the Discord message
+			const message = await interaction.message.fetch();
+			const embed = pugQueEmbed();
+
+			// Update the description of the embed
+			// embed.setDescription(`Queued Players: \n${doc.queuedPlayers.join("\n")}`);
+
+			embed.setFields([
+				{
+					name: "Players Queued",
+					value: doc.queuedPlayers.length.toString(),
+					inline: true,
+				},
+				{
+					name: "Players Needed:",
+					value: doc.totalNumOfPlayersPerPUG.toString(),
+					inline: true,
+				},
+				{
+					name: "Who's Queued:",
+					value: doc.queuedPlayers.join("\n"),
+				},
+			]);
+
+			// Edit the original message with the updated embed
+			await message.edit({ embeds: [embed], components: components });
+		} catch (err) {
+			console.log("Something wrong when updating data!", err);
 		}
 	}
 
