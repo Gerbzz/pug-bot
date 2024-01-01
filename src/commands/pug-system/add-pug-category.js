@@ -64,6 +64,9 @@ module.exports = {
 				queuedPlayers: [],
 				pugQueueArrays: {},
 				matchCounter: 0,
+				readyCheckCounter: 0,
+				pugQueEmbedChannelId: "?",
+				pugQueEmbedMessageId: "?",
 			});
 
 			newPug
@@ -141,12 +144,39 @@ module.exports = {
 											},
 										],
 									})
-									.then((pugQueChannel) => {
-										// Add reaction emojis for users to react to
-										pugQueChannel.send({
-											embeds: [embed],
-											components: components,
-										});
+									.then((pugQueEmbedChannel) => {
+										// Added buttons to the embed
+										pugQueEmbedChannel
+											.send({
+												embeds: [embed],
+												components: components,
+											})
+											.then((pugQueEmbedMessage) => {
+												console.log(
+													`Pug Que Embed Message ID: ${pugQueEmbedMessage.id}`
+														.green.inverse
+												);
+												// Here we update the newPug instance with the created channel's ID
+												newPug.pugQueEmbedMessageId = pugQueEmbedMessage.id;
+												// Here we update the newPug instance with the created channel's ID
+												newPug.pugQueEmbedChannelId = pugQueEmbedChannel.id;
+
+												// Save the updated PUG model instance to the database
+												newPug
+													.save()
+													.then(() =>
+														console.log(
+															`PUG category and pug-que channel created. Channel ID saved to DB.`
+														)
+													)
+													.catch((err) =>
+														console.error(
+															"Error saving newPug with pug-que channel ID:".red
+																.inverse,
+															err
+														)
+													);
+											});
 									})
 									.catch(console.error);
 							})

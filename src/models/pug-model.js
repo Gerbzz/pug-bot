@@ -11,6 +11,26 @@ const pugSchema = new mongoose.Schema({
 		type: String,
 		required: true,
 	},
+	pugQueEmbedChannelId: {
+		type: String,
+		required: true,
+	},
+	pugQueEmbedMessageId: {
+		type: String,
+		required: true,
+	},
+	matchFoundEmbedChannels: [
+		{
+			matchFoundEmbedChannelId: {
+				type: String,
+				required: false,
+			},
+			matchFoundEmbedMessageId: {
+				type: String,
+				required: false,
+			},
+		},
+	],
 	numOfPlayersPerTeam: {
 		type: Number,
 		required: true,
@@ -44,6 +64,10 @@ const pugSchema = new mongoose.Schema({
 		required: false,
 	},
 	matchCounter: {
+		type: Number,
+		required: false,
+	},
+	readyCheckCounter: {
 		type: Number,
 		required: false,
 	},
