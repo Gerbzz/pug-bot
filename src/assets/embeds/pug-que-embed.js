@@ -11,7 +11,7 @@ const {
 const pugModel = require("../../models/pug-model");
 
 const gifUrl =
-	"https://media1.tenor.com/m/1YgYDAoufH0AAAAC/winditup-tiktok.gif";
+	"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExN2h3amxpMndoNXgwa29kNmg5eHZ1cnppZzBqYXd0YmNtMHQ0aWIxbCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/pTEwHiQ057XVK/giphy.gif";
 const thumbnailUrl =
 	"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzJqeDJxYTQ3aXU5N3E1cHR2bnVrZTR3MXMzc3I4c3NrY2N1cHUydSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xUPGcLvo0MIkriPh2o/giphy.gif";
 
