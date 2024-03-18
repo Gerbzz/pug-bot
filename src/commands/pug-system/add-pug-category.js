@@ -1,3 +1,5 @@
+/** @format */
+
 // src/commands/pug-system/add-pug-category.js
 const { ApplicationCommandOptionType, ChannelType } = require("discord.js");
 const {
@@ -77,7 +79,7 @@ module.exports = {
 				.catch((err) => console.error("Error saving newPug:".red.inverse, err));
 
 			const guild = interaction.member.guild;
-			const embed = pugQueEmbed();
+			const embed = pugQueEmbed(newPug);
 			// Create the bot folders and channels
 			// Check for existing category
 			guild.channels

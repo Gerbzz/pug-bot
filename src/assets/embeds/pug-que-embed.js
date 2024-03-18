@@ -1,3 +1,5 @@
+/** @format */
+
 // src/assets/embeds/pug-que-embed.js
 const {
 	EmbedBuilder,
@@ -16,23 +18,23 @@ const thumbnailUrl =
 // add the doc from the database to the function parameters
 
 // Function to create the embed
-function pugQueEmbed() {
+function pugQueEmbed(doc) {
 	return new EmbedBuilder()
 		.setTitle("Pug Queue Interface!")
 		.setFields([
 			{
 				name: "Players Queued",
-				value: "0",
+				value: doc.queuedPlayers.length.toString() || "No one",
 				inline: true,
 			},
 			{
 				name: "Players Needed:",
-				value: "0",
+				value: doc.totalNumOfPlayersPerPUG.toString(),
 				inline: true,
 			},
 			{
 				name: "Who's Queued:",
-				value: "no one",
+				value: doc.queuedPlayers.join("\n") || "No one",
 			},
 		])
 		.setDescription(`Join the queue by clicking the button below!`)

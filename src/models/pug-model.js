@@ -1,3 +1,5 @@
+/** @format */
+
 // src/models/pug-model.js
 const mongoose = require("mongoose");
 
@@ -19,18 +21,6 @@ const pugSchema = new mongoose.Schema({
 		type: String,
 		required: true,
 	},
-	matchFoundEmbedChannels: [
-		{
-			matchFoundEmbedChannelId: {
-				type: String,
-				required: false,
-			},
-			matchFoundEmbedMessageId: {
-				type: String,
-				required: false,
-			},
-		},
-	],
 	numOfPlayersPerTeam: {
 		type: Number,
 		required: true,
