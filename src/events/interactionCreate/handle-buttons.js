@@ -301,6 +301,8 @@ module.exports = async (client, interaction) => {
 				(match) => !match.players.includes(interaction.user.tag)
 			);
 
+			console.log(`${interaction.user.tag} left the queue...`.magenta);
+
 			// Update the database with the updated arrays
 			await pugModel.updateOne(
 				{ _id: doc._id },
@@ -329,9 +331,7 @@ module.exports = async (client, interaction) => {
 	// Section : Accept Match Button
 	// **********************************************************************************
 	else if (interaction.customId === "acceptMatchButton") {
-		console.log(interaction.user.tag + " pressed the accept button".red);
-		console.log(interaction.user.tag + " pressed the accept button".red);
-		console.log(interaction.user.tag + " pressed the accept button".red);
+		console.log(interaction.user.tag + "  accepted the match".magenta);
 
 		// Remove the user's name from the "Waiting on Response From" list
 		const matchToAccept = doc.matchFoundPlayers.find((match) =>
@@ -383,7 +383,7 @@ module.exports = async (client, interaction) => {
 		);
 
 		if (matchIndex !== -1) {
-			console.log(`${interaction.user.tag} declined the match...`.red);
+			console.log(`${interaction.user.tag} declined the match...`.magenta);
 
 			// Update the players array to remove the declining player
 			doc.matchFoundPlayers[matchIndex].players = doc.matchFoundPlayers[
