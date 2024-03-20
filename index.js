@@ -4,7 +4,7 @@
 require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const eventHandler = require("./src/handlers/event-handler.js");
-const keep_alive = require("./keep_alive.js");
+const keepAlive = require("./keep-alive.js");
 // Connect to MongoDB
 const connectDB = require("./src/database/db.js");
 connectDB();
@@ -19,5 +19,5 @@ const client = new Client({
 });
 
 eventHandler(client);
-
+keepAlive();
 client.login(process.env.DISCORD_TOKEN);
