@@ -1,3 +1,5 @@
+/** @format */
+
 // src/events/ready/01registerCommands.js
 const { testServer } = require("../../../config.json");
 const areCommandsDifferent = require("../../utils/are-commands-different");

@@ -19,12 +19,15 @@ const thumbnailUrl =
 
 // Function to create the embed
 function pugQueEmbed(doc) {
+	const queuedPlayersDisplay =
+		doc.queuedPlayers.map((player) => player.userTag).join("\n") || "No one";
 	return new EmbedBuilder()
 		.setTitle("Pug Queue Interface!")
+		.setColor(0x0099ff)
 		.setFields([
 			{
 				name: "Players Queued",
-				value: doc.queuedPlayers.length.toString() || "No one",
+				value: doc.queuedPlayers.length.toString(),
 				inline: true,
 			},
 			{
@@ -34,7 +37,7 @@ function pugQueEmbed(doc) {
 			},
 			{
 				name: "Who's Queued:",
-				value: doc.queuedPlayers.join("\n") || "No one",
+				value: queuedPlayersDisplay,
 			},
 		])
 		.setDescription(`Join the queue by clicking the button below!`)
@@ -47,12 +50,12 @@ function pugQueEmbed(doc) {
 const joinQueueButton = new ButtonBuilder()
 	.setCustomId("joinQueue")
 	.setLabel("Join Queue")
-	.setStyle(ButtonStyle.Success);
+	.setStyle(ButtonStyle.Primary);
 
 const leaveQueueButton = new ButtonBuilder()
 	.setCustomId("leaveQueue")
 	.setLabel("Leave Queue")
-	.setStyle(ButtonStyle.Danger);
+	.setStyle(ButtonStyle.Secondary);
 
 // Create an action row to hold the buttons
 const row = new ActionRowBuilder().addComponents(
@@ -62,5 +65,5 @@ const row = new ActionRowBuilder().addComponents(
 
 module.exports = {
 	pugQueEmbed,
-	components: [row],
+	pugQueComponents: [row],
 };

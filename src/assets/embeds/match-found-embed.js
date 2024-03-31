@@ -8,7 +8,7 @@ const {
 } = require("discord.js");
 
 const thumbnailUrl =
-	"https://cdn.discordapp.com/attachments/549053891476455436/677649538214920217/black_bar_transparent.png1.png?ex=6584c2d0&is=65724dd0&hm=c832f28a000b02d7417a260a716a95e917e36ed3adae3db6bdeff92d14b6341a&";
+	"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzJqeDJxYTQ3aXU5N3E1cHR2bnVrZTR3MXMzc3I4c3NrY2N1cHUydSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xUPGcLvo0MIkriPh2o/giphy.gif";
 
 function calculateWaitingPlayers(doc) {
 	// Directly reference the last match object, assuming it's the current one.
@@ -20,16 +20,20 @@ function calculateWaitingPlayers(doc) {
 	}
 
 	// Calculate waiting players by filtering those not yet accepted.
-	const waitingPlayers = currentMatch.players.filter(
-		(player) =>
-			!doc.acceptedMatchFoundPlayers.some((accepted) =>
-				accepted.players.includes(player)
-			)
-	);
+	const waitingPlayers = currentMatch.players
+		.filter(
+			(player) =>
+				!doc.acceptedMatchFoundPlayers.some((accepted) =>
+					accepted.players
+						.map((acceptedPlayer) => acceptedPlayer.userId)
+						.includes(player.userId)
+				)
+		)
+		.map((player) => player.userTag); // Transform to userTag for display.
 
 	// Check if there are any waiting players.
 	if (waitingPlayers.length > 0) {
-		// If there are, return their identifiers.
+		// If there are, return their userTags.
 		return waitingPlayers.join(", ");
 	} else {
 		// If there aren't, indicate all players have accepted.
@@ -50,19 +54,20 @@ function matchFoundEmbed(doc) {
 				inline: true,
 			},
 		])
-		.setColor(0x2a2d31);
+		.setColor(0x0099ff);
 }
 
 // Create the button
 const acceptMatchButton = new ButtonBuilder()
 	.setCustomId("acceptMatchButton")
 	.setLabel("Accept Match")
-	.setStyle(ButtonStyle.Success);
+
+	.setStyle(ButtonStyle.Primary);
 
 const declineMatchButton = new ButtonBuilder()
 	.setCustomId("declineMatchButton")
 	.setLabel("Decline Match")
-	.setStyle(ButtonStyle.Danger);
+	.setStyle(ButtonStyle.Secondary);
 
 // Create an action row and add the button to it
 const row = new ActionRowBuilder().addComponents(

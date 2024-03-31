@@ -1,3 +1,5 @@
+/** @format */
+
 // src/utils/areCommandsDifferent.js
 module.exports = (existingCommand, localCommand) => {
 	const areChoicesDifferent = (existingChoices, localChoices) => {

@@ -53,7 +53,7 @@ async function startBot() {
 		keepAlive();
 		// After database and keepAlive, log in to Discord
 		await client.login(process.env.DISCORD_TOKEN);
-		console.log("Bot is logged in and ready to serve requests");
+		console.log(`Logged in as ${client.user.tag}`.green.inverse);
 	} catch (error) {
 		console.error("Error starting the bot", error);
 		process.exit(1);

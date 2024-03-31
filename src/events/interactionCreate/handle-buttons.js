@@ -2,7 +2,13 @@
 
 // src/events/interactionCreate/handle-buttons.js
 const pugModel = require("../../models/pug-model");
-const { ChannelType } = require("discord.js");
+const {
+	ChannelType,
+	EmbedBuilder,
+	ActionRowBuilder,
+	ButtonBuilder,
+	ButtonStyle,
+} = require("discord.js");
 const mongoose = require("mongoose");
 
 const {
@@ -27,8 +33,10 @@ module.exports = async (client, interaction) => {
 	async function updatePugQueueEmbed() {
 		try {
 			const doc = await pugModel.findOne({
-				categoryName: baseCategoryName,
+				serverId: interaction.guild.id,
+				categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
 			});
+
 			if (!doc) {
 				console.log("No document found for updating embed!");
 				return;
@@ -53,7 +61,11 @@ module.exports = async (client, interaction) => {
 	}
 	async function updateMatchFoundEmbed() {
 		try {
-			const doc = await pugModel.findOne({ categoryName: baseCategoryName });
+			const doc = await pugModel.findOne({
+				serverId: interaction.guild.id,
+				categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+			});
+
 			if (!doc) {
 				console.log("No document found for updating embed!");
 				return;
@@ -100,8 +112,10 @@ module.exports = async (client, interaction) => {
 	async function updateMatchRoomEmbed() {
 		try {
 			const doc = await pugModel.findOne({
-				categoryName: baseCategoryName,
+				serverId: interaction.guild.id,
+				categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
 			});
+
 			if (!doc) {
 				console.log("No document found for updating embed!");
 				return;
@@ -135,6 +149,74 @@ module.exports = async (client, interaction) => {
 			);
 		}
 	}
+	async function updatePlayerStatsForMatch(matchCounter, winningTeamIndex) {
+		const WINNER_ELO_CHANGE = 25;
+		const LOSER_ELO_CHANGE = -25;
+
+		// Find the PUG that contains the specified match
+		const pug = await pugModel.findOne({
+			serverId: interaction.guild.id,
+			categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+			"onGoingPugs.matchCounter": matchCounter,
+		});
+
+		if (!pug) {
+			console.error("No PUG found with matchCounter", matchCounter);
+			return;
+		}
+
+		const matchDetails = pug.onGoingPugs.find(
+			(match) => match.matchCounter === matchCounter
+		);
+
+		// Extract userTags from the teams array
+		const winningTeamUserTags = matchDetails.teams[winningTeamIndex].players; // Assuming this directly contains user tags
+		const losingTeamIndex = winningTeamIndex === 0 ? 1 : 0;
+		const losingTeamUserTags = matchDetails.teams[losingTeamIndex].players;
+
+		console.log(
+			`Updating ELO for Winning Team Players (User Tags): ${winningTeamUserTags}`
+		);
+		console.log(
+			`Updating ELO for Losing Team Players (User Tags): ${losingTeamUserTags}`
+		);
+
+		// Update winning team players
+		for (const userTag of winningTeamUserTags) {
+			await pugModel.updateOne(
+				{
+					"playerProfiles.userTag": userTag,
+					serverId: interaction.guild.id, // Use the serverId from the interaction
+					categoryIds: { $in: [interaction.channel.parentId] }, // Make sure the current categoryId is in the document's categoryIds array }, },
+				},
+				{
+					$inc: {
+						"playerProfiles.$.userELO": WINNER_ELO_CHANGE,
+						"playerProfiles.$.wins": 1,
+					},
+				}
+			);
+		}
+
+		// Update losing team players
+		for (const userTag of losingTeamUserTags) {
+			await pugModel.updateOne(
+				{
+					"playerProfiles.userTag": userTag,
+					serverId: interaction.guild.id, // Use the serverId from the interaction
+					categoryIds: { $in: [interaction.channel.parentId] }, // Make sure the current categoryId is in the document's categoryIds array },
+				},
+				{
+					$inc: {
+						"playerProfiles.$.userELO": LOSER_ELO_CHANGE,
+						"playerProfiles.$.losses": 1,
+					},
+				}
+			);
+		}
+
+		console.log("Player stats updated using userTags.");
+	}
 	async function updateMatchAndAcceptedPlayers(
 		docId,
 		matchFoundPlayers,
@@ -142,7 +224,10 @@ module.exports = async (client, interaction) => {
 	) {
 		try {
 			await pugModel.updateOne(
-				{ _id: docId },
+				{
+					serverId: interaction.guild.id, // Use the serverId from the interaction
+					categoryIds: { $in: [interaction.channel.parentId] }, // Make sure the current categoryId is in the document's categoryIds array },
+				},
 				{
 					$set: {
 						matchFoundPlayers: matchFoundPlayers,
@@ -161,57 +246,127 @@ module.exports = async (client, interaction) => {
 		}
 	}
 
-	async function deleteEmptyPug(docId) {
-		const doc = await pugModel.findById(docId);
+	async function removeExpiredQueueEntries(client, interaction) {
+		const doc = await pugModel.findOne({
+			serverId: interaction.guild.id,
+			categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+		});
+
 		if (!doc) {
-			console.log("Document not found.");
+			console.log("Document not found for checking expired queue entries.");
 			return;
 		}
 
-		// Assuming each onGoingPug has a categoryId for the associated Discord category
-		doc.onGoingPugs.forEach(async (pug, index) => {
-			if (pug.players.length === 0) {
-				// Channel and Category Deletion Logic
-				const channelToDelete = await interaction.channel.fetch();
-				if (channelToDelete) {
-					const guild = channelToDelete.guild;
-					try {
-						await guild.channels.fetch();
-						const categoryToDelete = guild.channels.cache.find(
-							(channel) =>
-								channel.type === ChannelType.GuildCategory &&
-								channel.id === channelToDelete.parentId
-						);
+		const now = new Date();
+		let updateRequired = false;
 
-						if (categoryToDelete) {
-							console.log(`Deletion in progress...`.red.inverse);
-							const channelsInCategory = guild.channels.cache.filter(
-								(channel) => channel.parentId === categoryToDelete.id
-							);
+		for (const player of doc.queuedPlayers) {
+			const playerProfile = doc.playerProfiles.find(
+				(p) => p.userId === player.userId
+			);
+			if (playerProfile) {
+				const joinTime = new Date(player.joinedAt);
+				const durationMinutes = playerProfile.userQueueDuration;
+				const expireTime = new Date(
+					joinTime.getTime() + durationMinutes * 60000
+				);
 
-							for (const channel of channelsInCategory.values()) {
-								await channel.delete();
-								console.log(`Channel "${channel.name}" has been deleted.`.red);
+				if (now > expireTime) {
+					// Time expired, remove player from queue
+					doc.queuedPlayers = doc.queuedPlayers.filter(
+						(p) => p.userId !== player.userId
+					);
+					updateRequired = true;
+
+					const pugCategory = await pugModel.findOne({
+						serverId: interaction.guild.id,
+						categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+					});
+
+					// Notify the player (optional)
+					const user = await client.users.fetch(player.userId);
+					const userTag = user.tag;
+					const pugQueueChannelMention = `<#${pugCategory.pugQueEmbedChannelId}>`;
+					const howToPugChannelMention = `<#${pugCategory.howToPugChannelId}>`;
+
+					const embedMessage = new EmbedBuilder()
+						.setColor(0x0099ff) // Adjust the color as needed
+						.setTitle("Queue Time Expired")
+						.setDescription(
+							`Hello, ${userTag}! Unfortunately, you've been removed from the queue due to exceeding your wait time.`
+						)
+						.addFields(
+							{
+								name: "Wait Time Exceeded",
+								value: `Your specified wait time of ${durationMinutes} minutes has expired.`,
+							},
+							{
+								name: "Rejoin the Queue",
+								value: `You can rejoin the queue at any time. For more details on how to do this, please refer to ${pugQueueChannelMention}.`,
+								inline: false,
+							},
+							{
+								name: "Need further assistance?",
+								value: `If you have questions or need help, please refer to ${howToPugChannelMention} for guidance.`,
+								inline: false,
 							}
+						)
+						.setFooter({ text: "Thank you choosing pug-bot!" });
 
-							await categoryToDelete.delete();
-							console.log(
-								`Category "${categoryToDelete.name}" and its channels deleted successfully!`
-									.green
-							);
-						} else {
-							console.error(
-								"Channel doesn't belong to a category or category not found"
-							);
-						}
-					} catch (error) {
-						console.error(`Error deleting category or its channels: `, error);
-					}
-				} else {
-					console.error("Channel to delete not found");
+					user.send({ embeds: [embedMessage] }).catch(console.error);
 				}
 			}
+		}
+
+		if (updateRequired) {
+			await doc.save();
+			// Optionally, update any relevant queue displays or interfaces here
+			updatePugQueueEmbed(client, doc, pugQueEmbed);
+		}
+	}
+
+	// Function to start the interval for checking expired queue entries
+	async function startQueueExpirationCheck(client, interaction) {
+		setInterval(
+			() => removeExpiredQueueEntries(client, interaction),
+			60 * 1000
+		);
+	}
+
+	async function addPlayerProfile(docId, playerData) {
+		const existingProfile = await pugModel.findOne({
+			_id: docId,
+			"playerProfiles.userId": playerData.userId,
 		});
+
+		if (!existingProfile) {
+			// If the player profile does not exist, use $push to add it
+			await pugModel.updateOne(
+				{
+					serverId: interaction.guild.id,
+					categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+				},
+				{
+					$push: {
+						playerProfiles: {
+							userId: playerData.userId,
+							userTag: playerData.userTag,
+							userQueueDuration: playerData.userQueueDuration || 30, // default to 30 minutes
+							userELO: playerData.userELO || 1000, // default ELO
+							wins: playerData.wins || 0,
+							losses: playerData.losses || 0,
+							isEligibleToQueue:
+								playerData.isEligibleToQueue !== undefined
+									? playerData.isEligibleToQueue
+									: true,
+						},
+					},
+				}
+			);
+			console.log(`Player profile for ${playerData.userTag} added.`);
+		} else {
+			console.log(`Player profile for ${playerData.userTag} already exists.`);
+		}
 	}
 
 	const channel = interaction.channel;
@@ -220,9 +375,9 @@ module.exports = async (client, interaction) => {
 	const baseCategoryName = categoryName.split(" ")[0];
 
 	// Fetch the document from the database
-	let doc = await pugModel.findOne({
+	const doc = await pugModel.findOne({
 		serverId: interaction.guild.id,
-		categoryName: baseCategoryName,
+		categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
 	});
 	let queuedPlayers = doc.queuedPlayers;
 	let matchFoundPlayers = doc.matchFoundPlayers;
@@ -248,35 +403,83 @@ module.exports = async (client, interaction) => {
 	// Section : Join Queue
 	// **********************************************************************************
 	if (interaction.customId === "joinQueue") {
-		if (
-			!doc.queuedPlayers.includes(interaction.user.tag) &&
-			!doc.matchFoundPlayers.some((match) =>
-				match.players.includes(interaction.user.tag)
-			) &&
-			!doc.acceptedMatchFoundPlayers.some((match) =>
-				match.players.includes(interaction.user.tag)
-			) &&
-			!doc.onGoingPugs.some((match) =>
-				match.players.includes(interaction.user.tag)
-			)
-		) {
-			doc.queuedPlayers.push(interaction.user.tag);
-			console.log(`${interaction.user.tag} joined the queue...`.magenta);
+		// Fetch the player's profile from the database
+		const playerProfile = doc.playerProfiles.find(
+			(profile) => profile.userId === interaction.user.id
+		);
 
-			// Update the database with the new queuedPlayers array
-			await pugModel.updateOne(
-				{ _id: doc._id },
-				{ queuedPlayers: doc.queuedPlayers }
-			);
-			await interaction.reply({
-				content: `You have joined the queue for ${categoryName}!`,
-				ephemeral: true,
-			});
-			updatePugQueueEmbed();
-			updatePugQueueEmbed();
+		// Check if the player is eligible to queue
+		if (!playerProfile || playerProfile.isEligibleToQueue) {
+			// Check if the player is already in a queue or a match
+			if (
+				!doc.queuedPlayers.some(
+					(player) => player.userTag === interaction.user.tag
+				) &&
+				!doc.matchFoundPlayers.some((match) =>
+					match.players.some(
+						(player) => player.userTag === interaction.user.tag
+					)
+				) &&
+				!doc.acceptedMatchFoundPlayers.some((match) =>
+					match.players.some(
+						(player) => player.userTag === interaction.user.tag
+					)
+				) &&
+				!doc.onGoingPugs.some((match) =>
+					match.players.some(
+						(player) => player.userTag === interaction.user.tag
+					)
+				)
+			) {
+				// Player is eligible to join the queue
+				doc.queuedPlayers.push({
+					userId: interaction.user.id,
+					userTag: interaction.user.tag,
+					joinedAt: new Date(),
+				});
+
+				console.log(`${interaction.user.tag} joined the queue...`.magenta);
+
+				// Update the database with the new queuedPlayers array
+				await pugModel.updateOne(
+					{
+						serverId: interaction.guild.id,
+						categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+					},
+					{ queuedPlayers: doc.queuedPlayers }
+				);
+				await interaction.reply({
+					content: `You have joined the queue for ${categoryName}!`,
+					ephemeral: true,
+				});
+
+				// If the player profile doesn't exist, create it
+				if (!playerProfile) {
+					const playerData = {
+						userId: interaction.user.id,
+						userTag: interaction.user.tag,
+						// Set other player data as needed, could be defaults or fetched from elsewhere
+						userQueueDuration: 30, // Example default duration
+						userELO: 1000, // Example default ELO
+						wins: 0, // Example default wins
+						losses: 0, // Example default losses
+						isEligibleToQueue: true, // Example default eligibility
+					};
+					addPlayerProfile(doc._id, playerData);
+				}
+				startQueueExpirationCheck(client, interaction);
+				updatePugQueueEmbed();
+			} else {
+				// Player is already in a queue or a match
+				await interaction.reply({
+					content: `You are already in the queue or a match for ${categoryName}.`,
+					ephemeral: true,
+				});
+			}
 		} else {
+			// Player is not eligible to queue
 			await interaction.reply({
-				content: `You are already in the queue or a match for ${categoryName}.`,
+				content: "You are not currently eligible to join the queue.",
 				ephemeral: true,
 			});
 		}
@@ -287,9 +490,12 @@ module.exports = async (client, interaction) => {
 	// Section : Leave Queue
 	// **********************************************************************************
 	else if (interaction.customId === "leaveQueue") {
-		if (doc.queuedPlayers.includes(interaction.user.tag)) {
+		const isUserInQueue = doc.queuedPlayers.some(
+			(player) => player.userTag === interaction.user.tag
+		);
+		if (isUserInQueue) {
 			doc.queuedPlayers = doc.queuedPlayers.filter(
-				(tag) => tag !== interaction.user.tag
+				(player) => player.userTag !== interaction.user.tag
 			);
 
 			// Remove the user from matchFoundPlayers and acceptedMatchFoundPlayers
@@ -305,7 +511,10 @@ module.exports = async (client, interaction) => {
 
 			// Update the database with the updated arrays
 			await pugModel.updateOne(
-				{ _id: doc._id },
+				{
+					serverId: interaction.guild.id,
+					categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+				},
 				{
 					queuedPlayers: doc.queuedPlayers,
 					matchFoundPlayers: doc.matchFoundPlayers,
@@ -331,15 +540,15 @@ module.exports = async (client, interaction) => {
 	// Section : Accept Match Button
 	// **********************************************************************************
 	else if (interaction.customId === "acceptMatchButton") {
-		console.log(interaction.user.tag + "  accepted the match".magenta);
+		console.log(`${interaction.user.tag} accepted the match`.magenta);
 
-		// Remove the user's name from the "Waiting on Response From" list
+		// Find the match object the user is a part of
 		const matchToAccept = doc.matchFoundPlayers.find((match) =>
-			match.players.includes(interaction.user.tag)
+			match.players.some((player) => player.userId === interaction.user.id)
 		);
 
 		if (matchToAccept) {
-			// Find or create the acceptedMatch object
+			// Find or create the acceptedMatch object for the current ready check
 			let acceptedMatch = doc.acceptedMatchFoundPlayers.find(
 				(match) => match.readyCheckCounter === doc.readyCheckCounter
 			);
@@ -352,13 +561,24 @@ module.exports = async (client, interaction) => {
 				doc.acceptedMatchFoundPlayers.push(acceptedMatch);
 			}
 
-			// Prevent adding player if they already accepted
-			if (!acceptedMatch.players.includes(interaction.user.tag)) {
-				acceptedMatch.players.push(interaction.user.tag);
+			// Prevent adding the player if they have already accepted
+			if (
+				!acceptedMatch.players.some(
+					(player) => player.userId === interaction.user.id
+				)
+			) {
+				acceptedMatch.players.push({
+					userId: interaction.user.id,
+					userTag: interaction.user.tag,
+					joinedAt: new Date(), // Assuming you want to track this
+				});
 
 				// Update the database with the new acceptedMatchFoundPlayers array
 				await pugModel.updateOne(
-					{ _id: doc._id },
+					{
+						serverId: interaction.guild.id,
+						categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+					},
 					{ acceptedMatchFoundPlayers: doc.acceptedMatchFoundPlayers }
 				);
 				await interaction.reply({
@@ -372,14 +592,21 @@ module.exports = async (client, interaction) => {
 					ephemeral: true,
 				});
 			}
+		} else {
+			// If no match is found for some reason, reply to the user
+			await interaction.reply({
+				content: "Couldn't find the match you are trying to accept.",
+				ephemeral: true,
+			});
 		}
 		return;
 	} else if (interaction.customId === "declineMatchButton") {
 		// Find the index of the match the user wants to decline
 		const matchIndex = doc.matchFoundPlayers.findIndex(
 			(match) =>
-				match.players.includes(interaction.user.tag) &&
-				match.readyCheckCounter === doc.readyCheckCounter
+				match.players.some(
+					(player) => player.userTag === interaction.user.tag
+				) && match.readyCheckCounter === doc.readyCheckCounter
 		);
 
 		if (matchIndex !== -1) {
@@ -388,15 +615,20 @@ module.exports = async (client, interaction) => {
 			// Update the players array to remove the declining player
 			doc.matchFoundPlayers[matchIndex].players = doc.matchFoundPlayers[
 				matchIndex
-			].players.filter((player) => player !== interaction.user.tag);
+			].players.filter((player) => player.userTag !== interaction.user.tag);
 
-			// Re-queue remaining players
+			// Re-queue remaining players (if any)
 			const playersToRequeue = doc.matchFoundPlayers[matchIndex].players;
+
+			// Add all player objects directly to doc.queuedPlayers
 			doc.queuedPlayers.push(...playersToRequeue);
 
 			// Update the database to reflect these changes
 			await pugModel.updateOne(
-				{ _id: doc._id },
+				{
+					serverId: interaction.guild.id,
+					categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+				},
 				{
 					$set: {
 						matchFoundPlayers: doc.matchFoundPlayers,
@@ -423,6 +655,15 @@ module.exports = async (client, interaction) => {
 							(channel) => channel.parentId === categoryToDelete.id
 						);
 
+						pugModel.updateOne(
+							{
+								serverId: interaction.guild.id,
+								categoryIds: { $in: [categoryToDelete.id] }, // Ensure the document contains the categoryId to be deleted
+							},
+							{
+								$pull: { categoryIds: categoryToDelete.id }, // Remove the categoryId from the categoryIds array
+							}
+						);
 						for (const channel of channelsInCategory.values()) {
 							await channel.delete();
 							console.log(`Channel "${channel.name}" has been deleted.`.red);
@@ -500,87 +741,378 @@ module.exports = async (client, interaction) => {
 			});
 		}
 		return;
-	} else if (interaction.customId === "leave_game") {
-		// 1. Find the active match the player is in
-		const matchData = doc.onGoingPugs.find((pug) =>
-			pug.players.includes(interaction.user.tag)
-		);
-		if (!matchData) {
-			await interaction.reply({
-				content: "You are not currently in an active match.",
-				ephemeral: true,
-			});
-			return;
+	}
+	// When a report is initiated
+	else if (interaction.customId === "report_results") {
+		// Create buttons for each team
+		const teamButtons = [];
+		for (let i = 0; i < doc.numOfTeamsPerPUG; i++) {
+			const teamButton = new ButtonBuilder()
+				.setCustomId(`select_team_${i}`)
+				.setLabel(`Select Team ${i + 1}`)
+				.setStyle(ButtonStyle.Primary);
+			teamButtons.push(teamButton);
 		}
 
-		// 2. Remove the player from the 'players' array in onGoingPugs
-		matchData.players = matchData.players.filter(
-			(player) => player !== interaction.user.tag
-		);
+		// Create an action row to contain the team buttons
+		const teamActionRow = new ActionRowBuilder().addComponents(...teamButtons);
 
-		// 3. Update the database
-		await pugModel.updateOne(
-			{ _id: doc._id },
-			{ onGoingPugs: doc.onGoingPugs } // Update the entire ongoingPugs array
-		);
-
-		// delete the pug after everyone is done
-		deleteEmptyPug(doc._id);
-
-		// 4. Send a confirmation message or update the embed
+		// Reply with a message asking to select the winning team
 		await interaction.reply({
-			content: "You have left the game.",
+			content: "Please select the winning team.",
+			components: [teamActionRow],
+			ephemeral: true, // Make the message visible only to the user who clicked the button
+		});
+	}
+
+	// Inside the if (interaction.customId === 'report_results') block
+	else if (interaction.customId === "report_results") {
+		// Create buttons for each team
+		const teamButtons = [];
+		for (let i = 0; i < doc.numOfTeamsPerPUG; i++) {
+			const teamButton = new ButtonBuilder()
+				.setCustomId(`select_team_${i}`)
+				.setLabel(`Select Team ${i + 1}`)
+				.setStyle(ButtonStyle.Primary);
+			teamButtons.push(teamButton);
+		}
+
+		// Create an action row to contain the team buttons
+		const teamActionRow = new ActionRowBuilder().addComponents(...teamButtons);
+
+		// Reply with a message asking to select the winning team
+		await interaction.reply({
+			content: "Please select the winning team.",
+			components: [teamActionRow],
+			ephemeral: true, // Make the message visible only to the user who clicked the button
+		});
+	} else if (interaction.customId.startsWith("select_team_")) {
+		const teamIndex = parseInt(interaction.customId.split("_")[2], 10);
+		// Logging for debugging
+		console.log("teamIndex in select_team_ handler:", teamIndex);
+
+		// Update confirmButton's customId to include teamIndex
+		const confirmButton = new ButtonBuilder()
+			.setCustomId(`confirm_report_${teamIndex}`) // Embedding teamIndex here
+			.setLabel("Confirm Report")
+			.setStyle(ButtonStyle.Primary);
+
+		const cancelButton = new ButtonBuilder()
+			.setCustomId("cancel_report")
+			.setLabel("Cancel Report")
+			.setStyle(ButtonStyle.Secondary);
+
+		const actionRow = new ActionRowBuilder().addComponents(
+			confirmButton,
+			cancelButton
+		);
+
+		await interaction.update({
+			// Use update() if within an existing interaction, or reply() if starting a new one
+			content: `Team ${
+				teamIndex + 1
+			} selected as the winning team. Now, please confirm or cancel the report.`,
+			components: [actionRow],
 			ephemeral: true,
 		});
+	} else if (interaction.customId.startsWith("confirm_report_")) {
+		const teamIndex = parseInt(interaction.customId.split("_")[2], 10); // Correctly extract teamIndex
+		const userId = interaction.user.id;
 
-		// You likely need to update the match room embed:
-		updateMatchRoomEmbed();
-	} else if (interaction.customId === "play_again") {
-		// 1. Find the active match the player is in
-		const matchData = doc.onGoingPugs.find((pug) =>
-			pug.players.includes(interaction.user.tag)
-		);
-		if (matchData) {
-			//  2. Remove player from `onGoingPugs` in the database
-			matchData.players = matchData.players.filter(
-				(player) => player !== interaction.user.tag
+		// Fetch the PUG instance
+		const pug = doc.onGoingPugs.find((p) => p.matchCounter === matchCounter);
+		if (pug) {
+			// Check if the user has already voted in this PUG
+			const hasAlreadyVoted = pug.results.reports.some(
+				(vote) => vote.userId === userId
 			);
+
+			if (hasAlreadyVoted) {
+				// Inform the user that they have already voted
+				await interaction.reply({
+					content: "You have already submitted your vote for this match.",
+					ephemeral: true,
+				});
+				return; // Exit the function to prevent further execution
+			}
+
+			// Proceed with adding the vote since the user hasn't voted yet
+			const vote = {
+				userId: userId,
+				userTag: interaction.user.tag,
+				votedForTeam: teamIndex,
+			};
+
+			// Add the vote to the reports array
+			pug.results.reports.push(vote);
+
+			// Before determining the winner, check if all players have voted
+			if (pug.results.reports.length >= doc.totalNumOfPlayersPerPUG / 2 + 1) {
+				// All players have voted, tally the votes to determine the winner
+				const voteTally = pug.results.reports.reduce((acc, vote) => {
+					acc[vote.votedForTeam] = (acc[vote.votedForTeam] || 0) + 1;
+					return acc;
+				}, {});
+
+				let winningTeamIndex = -1;
+				let maxVotes = 0;
+				Object.entries(voteTally).forEach(([index, votes]) => {
+					if (votes > maxVotes) {
+						winningTeamIndex = parseInt(index, 10);
+						maxVotes = votes;
+					}
+				});
+				if (winningTeamIndex !== -1) {
+					// Fetch the specific PUG instance based on matchCounter
+					const pug = doc.onGoingPugs.find(
+						(p) => p.matchCounter === matchCounter
+					);
+					if (!pug) {
+						console.error(
+							"PUG instance with the specified matchCounter not found."
+						);
+						// Handle the error, possibly by sending a reply to the interaction
+						return;
+					}
+					// Constants for ELO calculation
+					const WINNER_ELO_CHANGE = 25;
+					const LOSER_ELO_CHANGE = -25;
+
+					// Set the winning team index in the results
+					pug.results.winningTeamIndex = winningTeamIndex;
+
+					// Assuming pug.onGoingPugs.teams is an array of all teams in the PUG.
+					const allTeams = pug.teams;
+
+					// All teams except the winning one are losing teams.
+					const losingTeamIndices = allTeams
+						.map((_, index) => index) // Create an array of all indices
+						.filter((index) => index !== winningTeamIndex); // Exclude the winning index
+
+					// Create an embed to display match result information
+					const embed = new EmbedBuilder()
+						.setColor(0x0099ff) // Blue color for success
+						.setTitle("PUG Match Results Updated")
+						.setDescription(
+							`ELO updated for players in the specified match of the PUG.\nWinners gained ${WINNER_ELO_CHANGE} ELO, losers lost ${LOSER_ELO_CHANGE} ELO.`
+						)
+						.addFields(
+							{
+								name: "🏆 Winning Team",
+								value: `Team ${winningTeamIndex + 1}`,
+								inline: true,
+							},
+							{
+								name: "💔 Losing Teams",
+								value: losingTeamIndices
+									.map((index) => `Team ${index + 1}`)
+									.join(", "),
+								inline: true,
+							},
+							{
+								name: "⚔️ Match Counter",
+								value: pug.matchCounter.toString(),
+								inline: true,
+							}
+						);
+
+					const playerProfileDoc = await pugModel.findOne({
+						serverId: interaction.guild.id,
+						categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+					});
+					// Create strings to hold player information for the embed
+					let winningTeamPlayersValue = "";
+					let losingTeamPlayersValue = "";
+
+					// Winning Team Players
+					const winningTeamPlayers = allTeams[winningTeamIndex].players;
+					winningTeamPlayers.forEach((playerTag) => {
+						const playerProfile = playerProfileDoc.playerProfiles.find(
+							(profile) => profile.userTag === playerTag
+						);
+						winningTeamPlayersValue += `${playerTag} (ELO: ${
+							playerProfile.userELO
+						} ➡️ ${playerProfile.userELO + WINNER_ELO_CHANGE})\n`;
+					});
+
+					// Losing Team Players
+					losingTeamIndices.forEach((losingIndex) => {
+						allTeams[losingIndex].players.forEach((playerTag) => {
+							const playerProfile = playerProfileDoc.playerProfiles.find(
+								(profile) => profile.userTag === playerTag
+							);
+							losingTeamPlayersValue += `${playerTag} (ELO: ${
+								playerProfile.userELO
+							} ➡️ ${playerProfile.userELO + LOSER_ELO_CHANGE})\n`;
+						});
+					});
+
+					// Add team player fields to the embed
+					embed.addFields(
+						{
+							name: `🥇 Winning Team (Team ${winningTeamIndex + 1})`,
+							value: winningTeamPlayersValue || "No players",
+							inline: false,
+						},
+						{
+							name: `💔 Losing Teams`,
+							value: losingTeamPlayersValue || "No players",
+							inline: false,
+						}
+					);
+
+					// Set the footer using an object
+					embed.setFooter({
+						text: "PUG Match Results",
+						iconURL: "https://example.com/icon.png", // Replace with the actual URL of your icon
+					});
+
+					// Create a button for disputes
+					const disputeButton = new ButtonBuilder()
+						.setCustomId("dispute_results")
+						.setLabel("Dispute Results")
+						.setStyle(ButtonStyle.Danger); // 'Danger' style to indicate a dispute action
+
+					// Create an action row and add the button to it
+					const row = new ActionRowBuilder().addComponents(disputeButton);
+
+					// Send the embed with the interaction
+					await interaction.reply({
+						embeds: [embed],
+						components: [row],
+						ephemeral: false, // Visible to all users
+					});
+
+					await updatePlayerStatsForMatch(pug.matchCounter, winningTeamIndex);
+
+					// Set the players array to an empty array, indicating no players are in this PUG
+					pug.players = [];
+
+					// Proceed to update the document in the database to reflect this change
+					await pugModel.updateOne(
+						{
+							serverId: interaction.guild.id, // Match the document by server ID
+							categoryIds: { $in: [interaction.channel.parentId] }, // Ensure the current category ID is within the categoryIds array
+							"onGoingPugs.matchCounter": pug.matchCounter, // Additionally match the specific matchCounter within onGoingPugs
+						},
+						{ $set: { "onGoingPugs.$.players": [] } } // Directly set to an empty array
+					);
+
+					// Save the updated document
+					await pugModel.updateOne(
+						{
+							serverId: interaction.guild.id, // Match the document by server ID
+							categoryIds: { $in: [interaction.channel.parentId] }, // Ensure the current category ID is within the categoryIds array
+						},
+						{ $set: { onGoingPugs: playerProfileDoc.onGoingPugs } }
+					);
+				}
+			} else {
+				// Assume `pug` is the match instance and `userId` is defined
+				const updatedPlayers = pug.players.filter(
+					(player) => player.userId !== interaction.user.id
+				);
+				pug.players = updatedPlayers;
+
+				// Proceed to update the document in the database
+				await pugModel.updateOne(
+					{
+						serverId: interaction.guild.id, // Use the serverId from the interaction
+						categoryIds: { $in: [interaction.channel.parentId] }, // Make sure the current categoryId is in the document's categoryIds array
+						"onGoingPugs.matchCounter": pug.matchCounter, // Match the specific pug by its matchCounter
+					},
+					{ $set: { "onGoingPugs.$.players": updatedPlayers } } // Update the players array for the matched pug
+				);
+
+				const pugCategory = await pugModel.findOne({
+					serverId: interaction.guild.id,
+					categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+				});
+
+				const pugQueueChannelMention = `<#${pugCategory.pugQueEmbedChannelId}>`;
+				const howToPugChannelMention = `<#${pugCategory.howToPugChannelId}>`;
+				// Not all players have voted yet
+				await interaction.reply({
+					content: `Thanks for voting <@${
+						interaction.user.id
+					}>, Your vote for Team ${
+						teamIndex + 1
+					} has been successfully recorded. You may now queue again in ${pugQueueChannelMention} while waiting for votes from all players.`,
+					ephemeral: false,
+				});
+			}
+
+			// Save the updated document
 			await pugModel.updateOne(
-				{ _id: doc._id },
-				{ onGoingPugs: doc.onGoingPugs } // Update the entire ongoingPugs array
+				{
+					serverId: interaction.guild.id, // Use the serverId from the interaction
+					categoryIds: { $in: [interaction.channel.parentId] }, // Make sure the current categoryId is in the document's categoryIds array
+				},
+				{ $set: { onGoingPugs: doc.onGoingPugs } }
 			);
-		}
-
-		// 3. Check if the user is already queued
-		if (
-			doc.queuedPlayers.includes(interaction.user.tag) ||
-			doc.matchFoundPlayers.some((match) =>
-				match.players.includes(interaction.user.tag)
-			)
-		) {
+		} else {
+			// Handle the case where the PUG could not be found
 			await interaction.reply({
-				content: "You are already in the queue or in a match",
+				content: "Could not find the match you are voting for.",
 				ephemeral: true,
 			});
+		}
+	} else if (interaction.customId === "cancel_report") {
+		// Handle cancellation
+		await interaction.reply({
+			content: "Report cancelled.",
+			ephemeral: true,
+		});
+	} else if (interaction.customId === "dispute_results") {
+		// Acknowledge the button press
+		await interaction.reply({
+			content: "A request for a dispute was made. Mods have been notified.",
+			ephemeral: true, // This can be ephemeral: true if you only want the person who clicked to see it
+		});
+		const pug = doc.onGoingPugs.find((p) => p.matchCounter === matchCounter);
+		// Fetch the server configuration from your database
+		const serverConfig = await pugModel.findOne({
+			serverId: interaction.guild.id,
+			categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+		});
+
+		if (!serverConfig || !serverConfig.modChannelId) {
+			console.error("Moderator channel ID not set for this server.");
 			return;
 		}
 
-		// 4. Add the user to the queuedPlayers array
-		doc.queuedPlayers.push(interaction.user.tag);
+		// Notify moderators by sending a message to the stored moderator channel ID
+		const modChannel = interaction.guild.channels.cache.get(
+			serverConfig.modChannelId
+		);
 
-		// 5. Update the database
-		await pugModel.updateOne({ _id: doc._id }, doc); // Update the queuedPlayers
+		if (modChannel) {
+			const disputeEmbed = new EmbedBuilder()
+				.setColor(0xff0000) // Red color to signify alert or attention needed
+				.setTitle("🚩 Dispute Requested")
+				.setDescription(
+					"A dispute has been initiated for a match result. Please review the dispute."
+				)
+				.addFields(
+					{ name: "Match Counter", value: `${pug.matchCounter}`, inline: true },
+					{ name: "Initiator", value: `${interaction.user.tag}`, inline: true },
+					// Use a mention to make the channel name clickable
+					{
+						name: "Channel",
+						value: `<#${interaction.channel.id}>`,
+						inline: true,
+					}
+				)
+				.setTimestamp()
+				.setFooter({
+					text: "Quickly navigate to the channel to review the dispute.",
+				});
 
-		// delete the pug after everyone is done
-		deleteEmptyPug(doc._id);
-
-		// 6. Send a confirmation message or update the embed
-		await interaction.reply({
-			content: "You are ready to play!",
-			ephemeral: true,
-		});
-
-		// 7. Update embeds if necessary:
-		updatePugQueueEmbed();
+			modChannel.send({ embeds: [disputeEmbed] }).catch(console.error); // Ensure to catch any errors
+		} else {
+			console.log(
+				"Moderator channel not found or bot lacks permission to access it."
+			);
+		}
 	}
 };

@@ -6,55 +6,71 @@ const {
 	ButtonStyle,
 	EmbedBuilder,
 } = require("discord.js");
+const pugModel = require("../../models/pug-model");
 
-const thumbnailUrl =
-	"https://cdn.discordapp.com/attachments/549053891476455436/677649538214920217/black_bar_transparent.png1.png?ex=6584c2d0&is=65724dd0&hm=c832f28a000b02d7417a260a716a95e917e36ed3adae3db6bdeff92d14b6341a&";
+// Make sure matchRoomEmbed is an async function since you're now performing an async operation within it
 
+// Function to generate the match room embed
 function matchRoomEmbed(doc) {
-	// Debug log
-	console.log(`doc: ${JSON.stringify(doc)}`.yellow);
+	const thumbnailUrl =
+		"https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMzJqeDJxYTQ3aXU5N3E1cHR2bnVrZTR3MXMzc3I4c3NrY2N1cHUydSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/xUPGcLvo0MIkriPh2o/giphy.gif";
 
 	const embed = new EmbedBuilder()
 		.setThumbnail(thumbnailUrl)
 		.setTitle("Match Room Interface!")
-		.setDescription("Click one of the buttons below once the game has ended.")
-		.setColor(0x2a2d31);
+		.setDescription(
+			"Please report the match results accurately using the buttons below. Your cooperation ensures fair play and helps maintain the integrity of our gaming community."
+		)
 
-	// Correctly reference the players of the current match
-	const currentMatch = doc.matchFoundPlayers[doc.readyCheckCounter - 1];
-	const players = currentMatch ? currentMatch.players : [];
+		.setColor(0x0099ff);
 
-	// Dynamically add teams based on the players array
+	const currentMatch = doc.matchFoundPlayers.find(
+		(m) => m.readyCheckCounter === doc.readyCheckCounter
+	);
+	const players = currentMatch
+		? currentMatch.players.map((player) => player.userTag)
+		: [];
+
+	if (players.length === 0) {
+		console.log("No players found in the current match.");
+		embed.addFields({
+			name: "Waiting for Players",
+			value: "No players found.",
+		});
+		return embed;
+	}
+
+	const playersPerTeam = Math.ceil(players.length / doc.numOfTeamsPerPUG);
+	const teams = []; // Initialize teams array
+	console.log(teams);
+
 	for (let i = 0; i < doc.numOfTeamsPerPUG; i++) {
-		const startIndex = i * doc.numOfPlayersPerTeam;
-		const endIndex = startIndex + doc.numOfPlayersPerTeam;
-		let teamPlayers = players.slice(startIndex, endIndex).join("\n");
-
+		const teamStartIndex = i * playersPerTeam;
+		const teamEndIndex = teamStartIndex + playersPerTeam;
+		const teamPlayers = players.slice(teamStartIndex, teamEndIndex);
+		teams.push({ name: `Team ${i + 1}`, players: teamPlayers });
+		console.log(`Team ${i + 1}:`, teams[i]);
 		embed.addFields({
 			name: `Team ${i + 1}`,
-			value: teamPlayers || "Waiting for players...",
+			value: teamPlayers.join("\n") || "Waiting for players...",
 			inline: true,
 		});
 	}
 
-	return embed;
+	console.log(
+		"this is what teams looks like now using JSON.stringify(teams, null, 2): " +
+			JSON.stringify(teams, null, 2)
+	);
+
+	return { embed, teams };
 }
 
-const leaveGameButton = new ButtonBuilder()
-	.setCustomId("leave_game")
-	.setLabel("Leave Game")
-	.setStyle(ButtonStyle.Danger);
+const reportResultsButton = new ButtonBuilder()
+	.setCustomId("report_results")
+	.setLabel("Report Results")
+	.setStyle(ButtonStyle.Primary);
 
-const playAgainButton = new ButtonBuilder()
-	.setCustomId("play_again")
-	.setLabel("Play Again")
-	.setStyle(ButtonStyle.Success);
-
-const row = new ActionRowBuilder().addComponents(
-	leaveGameButton,
-	playAgainButton
-);
-
+const row = new ActionRowBuilder().addComponents(reportResultsButton);
 module.exports = {
 	matchRoomEmbed,
 	matchRoomComponents: [row],

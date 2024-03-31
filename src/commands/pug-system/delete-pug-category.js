@@ -1,3 +1,5 @@
+/** @format */
+
 // src/commands/pug-system/delete-pug-category.js
 
 // Import necessary classes and types from the discord.js library
@@ -89,7 +91,7 @@ module.exports = {
 						pugModel
 							.deleteOne({
 								serverId: interaction.guild.id,
-								categoryName: categoryName,
+								categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
 							})
 							.then(() => {
 								// Log the successful deletion of the pug model
