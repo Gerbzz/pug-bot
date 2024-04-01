@@ -70,7 +70,7 @@ module.exports = {
 
 						let docNeeded = pugModel.findOne({
 							serverId: interaction.guild.id,
-							categoryName: categoryName,
+							categoryIds: { $in: [interaction.channel.parentId] },
 						});
 
 						docNeeded

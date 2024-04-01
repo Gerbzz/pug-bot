@@ -247,81 +247,93 @@ module.exports = async (client, interaction) => {
 	}
 
 	async function removeExpiredQueueEntries(client, interaction) {
-		const doc = await pugModel.findOne({
-			serverId: interaction.guild.id,
-			categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
-		});
-
-		if (!doc) {
-			console.log("Document not found for checking expired queue entries.");
-			return;
-		}
-
-		const now = new Date();
-		let updateRequired = false;
-
-		for (const player of doc.queuedPlayers) {
-			const playerProfile = doc.playerProfiles.find(
-				(p) => p.userId === player.userId
-			);
-			if (playerProfile) {
-				const joinTime = new Date(player.joinedAt);
-				const durationMinutes = playerProfile.userQueueDuration;
-				const expireTime = new Date(
-					joinTime.getTime() + durationMinutes * 60000
+		try {
+			if (!interaction.channel.parentId) {
+				console.log(
+					"Parent category no longer exists. Potentinally because the delete-pug-category was ran when a user was still queued. Exiting queue removal process."
 				);
+				return; // Exit the function early
+			}
+			const doc = await pugModel.findOne({
+				serverId: interaction.guild.id,
+				categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+			});
 
-				if (now > expireTime) {
-					// Time expired, remove player from queue
-					doc.queuedPlayers = doc.queuedPlayers.filter(
-						(p) => p.userId !== player.userId
+			if (!doc) {
+				console.log("Document not found for checking expired queue entries.");
+				return;
+			}
+
+			const now = new Date();
+			let updateRequired = false;
+
+			for (const player of doc.queuedPlayers) {
+				const playerProfile = doc.playerProfiles.find(
+					(p) => p.userId === player.userId
+				);
+				if (playerProfile) {
+					const joinTime = new Date(player.joinedAt);
+					const durationMinutes = playerProfile.userQueueDuration;
+					const expireTime = new Date(
+						joinTime.getTime() + durationMinutes * 60000
 					);
-					updateRequired = true;
 
-					const pugCategory = await pugModel.findOne({
-						serverId: interaction.guild.id,
-						categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
-					});
+					if (now > expireTime) {
+						// Time expired, remove player from queue
+						doc.queuedPlayers = doc.queuedPlayers.filter(
+							(p) => p.userId !== player.userId
+						);
+						updateRequired = true;
 
-					// Notify the player (optional)
-					const user = await client.users.fetch(player.userId);
-					const userTag = user.tag;
-					const pugQueueChannelMention = `<#${pugCategory.pugQueEmbedChannelId}>`;
-					const howToPugChannelMention = `<#${pugCategory.howToPugChannelId}>`;
+						const pugCategory = await pugModel.findOne({
+							serverId: interaction.guild.id,
+							categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+						});
 
-					const embedMessage = new EmbedBuilder()
-						.setColor(0x0099ff) // Adjust the color as needed
-						.setTitle("Queue Time Expired")
-						.setDescription(
-							`Hello, ${userTag}! Unfortunately, you've been removed from the queue due to exceeding your wait time.`
-						)
-						.addFields(
-							{
-								name: "Wait Time Exceeded",
-								value: `Your specified wait time of ${durationMinutes} minutes has expired.`,
-							},
-							{
-								name: "Rejoin the Queue",
-								value: `You can rejoin the queue at any time. For more details on how to do this, please refer to ${pugQueueChannelMention}.`,
-								inline: false,
-							},
-							{
-								name: "Need further assistance?",
-								value: `If you have questions or need help, please refer to ${howToPugChannelMention} for guidance.`,
-								inline: false,
-							}
-						)
-						.setFooter({ text: "Thank you choosing pug-bot!" });
+						// Notify the player (optional)
+						const user = await client.users.fetch(player.userId);
+						const userTag = user.tag;
+						const pugQueueChannelMention = `<#${pugCategory.pugQueEmbedChannelId}>`;
+						const howToPugChannelMention = `<#${pugCategory.howToPugChannelId}>`;
 
-					user.send({ embeds: [embedMessage] }).catch(console.error);
+						const embedMessage = new EmbedBuilder()
+							.setColor(0x0099ff) // Adjust the color as needed
+							.setTitle("Queue Time Expired")
+							.setDescription(
+								`Hello, ${userTag}! Unfortunately, you've been removed from the queue due to exceeding your wait time.`
+							)
+							.addFields(
+								{
+									name: "Wait Time Exceeded",
+									value: `Your specified wait time of ${durationMinutes} minutes has expired.`,
+								},
+								{
+									name: "Rejoin the Queue",
+									value: `You can rejoin the queue at any time. For more details on how to do this, please refer to ${pugQueueChannelMention}.`,
+									inline: false,
+								},
+								{
+									name: "Need further assistance?",
+									value: `If you have questions or need help, please refer to ${howToPugChannelMention} for guidance.`,
+									inline: false,
+								}
+							)
+							.setFooter({ text: "Thank you choosing pug-bot!" });
+
+						user.send({ embeds: [embedMessage] }).catch(console.error);
+					}
 				}
 			}
-		}
 
-		if (updateRequired) {
-			await doc.save();
-			// Optionally, update any relevant queue displays or interfaces here
-			updatePugQueueEmbed(client, doc, pugQueEmbed);
+			if (updateRequired) {
+				await doc.save();
+				// Optionally, update any relevant queue displays or interfaces here
+				updatePugQueueEmbed(client, doc, pugQueEmbed);
+			}
+		} catch (error) {
+			console.error("An error occurred in removeExpiredQueueEntries:", error);
+			// Handle specific cases if you need to, for example:
+			// if (error.code === 'SOME_SPECIFIC_ERROR_CODE') { ... }
 		}
 	}
 
@@ -404,7 +416,7 @@ module.exports = async (client, interaction) => {
 	// **********************************************************************************
 	if (interaction.customId === "joinQueue") {
 		// Fetch the player's profile from the database
-		const playerProfile = doc.playerProfiles.find(
+		let playerProfile = doc.playerProfiles.find(
 			(profile) => profile.userId === interaction.user.id
 		);
 
@@ -448,14 +460,10 @@ module.exports = async (client, interaction) => {
 					},
 					{ queuedPlayers: doc.queuedPlayers }
 				);
-				await interaction.reply({
-					content: `You have joined the queue for ${categoryName}!`,
-					ephemeral: true,
-				});
 
 				// If the player profile doesn't exist, create it
 				if (!playerProfile) {
-					const playerData = {
+					playerProfile = {
 						userId: interaction.user.id,
 						userTag: interaction.user.tag,
 						// Set other player data as needed, could be defaults or fetched from elsewhere
@@ -465,10 +473,15 @@ module.exports = async (client, interaction) => {
 						losses: 0, // Example default losses
 						isEligibleToQueue: true, // Example default eligibility
 					};
-					addPlayerProfile(doc._id, playerData);
+					await addPlayerProfile(doc._id, playerProfile);
 				}
-				startQueueExpirationCheck(client, interaction);
-				updatePugQueueEmbed();
+				await interaction.reply({
+					content: `You have joined the queue for ${categoryName}! \nYour Queue Time is set to expire in ${playerProfile.userQueueDuration} minutes. \nYou can adjust this by using the command /set-my-queue-duration.`,
+					ephemeral: true,
+				});
+
+				await startQueueExpirationCheck(client, interaction);
+				await updatePugQueueEmbed();
 			} else {
 				// Player is already in a queue or a match
 				await interaction.reply({
@@ -742,31 +755,21 @@ module.exports = async (client, interaction) => {
 		}
 		return;
 	}
-	// When a report is initiated
-	else if (interaction.customId === "report_results") {
-		// Create buttons for each team
-		const teamButtons = [];
-		for (let i = 0; i < doc.numOfTeamsPerPUG; i++) {
-			const teamButton = new ButtonBuilder()
-				.setCustomId(`select_team_${i}`)
-				.setLabel(`Select Team ${i + 1}`)
-				.setStyle(ButtonStyle.Primary);
-			teamButtons.push(teamButton);
-		}
-
-		// Create an action row to contain the team buttons
-		const teamActionRow = new ActionRowBuilder().addComponents(...teamButtons);
-
-		// Reply with a message asking to select the winning team
-		await interaction.reply({
-			content: "Please select the winning team.",
-			components: [teamActionRow],
-			ephemeral: true, // Make the message visible only to the user who clicked the button
-		});
-	}
-
 	// Inside the if (interaction.customId === 'report_results') block
 	else if (interaction.customId === "report_results") {
+		const pug = doc.onGoingPugs.find((p) => p.matchCounter === matchCounter);
+		const isUserInPug =
+			pug &&
+			pug.players.some((player) => player.userId === interaction.user.id);
+
+		if (!isUserInPug) {
+			// Inform the user they are not part of the pug
+			await interaction.reply({
+				content: "You are not authorized to initiate a dispute for this match.",
+				ephemeral: true,
+			});
+			return;
+		}
 		// Create buttons for each team
 		const teamButtons = [];
 		for (let i = 0; i < doc.numOfTeamsPerPUG; i++) {
@@ -819,8 +822,20 @@ module.exports = async (client, interaction) => {
 		const teamIndex = parseInt(interaction.customId.split("_")[2], 10); // Correctly extract teamIndex
 		const userId = interaction.user.id;
 
-		// Fetch the PUG instance
 		const pug = doc.onGoingPugs.find((p) => p.matchCounter === matchCounter);
+		const isUserInPug =
+			pug &&
+			pug.players.some((player) => player.userId === interaction.user.id);
+
+		if (!isUserInPug) {
+			// Inform the user they are not part of the pug
+			await interaction.reply({
+				content: "You are not authorized to initiate a dispute for this match.",
+				ephemeral: true,
+			});
+			return;
+		}
+
 		if (pug) {
 			// Check if the user has already voted in this PUG
 			const hasAlreadyVoted = pug.results.reports.some(
@@ -847,7 +862,7 @@ module.exports = async (client, interaction) => {
 			pug.results.reports.push(vote);
 
 			// Before determining the winner, check if all players have voted
-			if (pug.results.reports.length >= doc.totalNumOfPlayersPerPUG / 2 + 1) {
+			if (pug.results.reports.length === doc.totalNumOfPlayersPerPUG / 2 + 1) {
 				// All players have voted, tally the votes to determine the winner
 				const voteTally = pug.results.reports.reduce((acc, vote) => {
 					acc[vote.votedForTeam] = (acc[vote.votedForTeam] || 0) + 1;
@@ -1058,6 +1073,20 @@ module.exports = async (client, interaction) => {
 			});
 		}
 	} else if (interaction.customId === "cancel_report") {
+		// Fetch the PUG instance
+		const pug = doc.onGoingPugs.find((p) => p.matchCounter === matchCounter);
+		const isUserInPug =
+			pug &&
+			pug.players.some((player) => player.userId === interaction.user.id);
+
+		if (!isUserInPug) {
+			// Inform the user they are not part of the pug
+			await interaction.reply({
+				content: "You are not authorized to initiate a dispute for this match.",
+				ephemeral: true,
+			});
+			return;
+		}
 		// Handle cancellation
 		await interaction.reply({
 			content: "Report cancelled.",
@@ -1095,7 +1124,11 @@ module.exports = async (client, interaction) => {
 				)
 				.addFields(
 					{ name: "Match Counter", value: `${pug.matchCounter}`, inline: true },
-					{ name: "Initiator", value: `${interaction.user.tag}`, inline: true },
+					{
+						name: "Initiator",
+						value: `<@${interaction.user.id}>`,
+						inline: true,
+					},
 					// Use a mention to make the channel name clickable
 					{
 						name: "Channel",
