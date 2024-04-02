@@ -46,9 +46,20 @@ module.exports = async (client, interaction) => {
 	let categoryName = category.name;
 	let baseCategoryName = categoryName.split(" ")[0]; // This will give you "5v5" if categoryName is "5v5 PUG#1"
 
+	// Before accessing parentId, ensure that the channel and its parent exist
+	if (!interaction.channel || !interaction.channel.parentId) {
+		console.log("Channel or parent category does not exist.");
+		return; // Exit the function if there's no channel or parent
+	}
+
+	// Proceed with your existing logic now that you've ensured the parentId exists
+	const currentCategoryId = interaction.channel.parentId;
+
+	// Your existing code continues from here...
+
 	const doc = await pugModel.findOne({
 		serverId: interaction.guild.id,
-		categoryIds: { $in: [interaction.channel.parentId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
+		categoryIds: { $in: [currentCategoryId] }, // Use $in operator to find if currentCategoryId exists in categoryIds array
 	});
 
 	console.log("Server ID:", interaction.guild.id);
